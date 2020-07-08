@@ -6,6 +6,8 @@ from fbchat import log, Client, Message, Mention
 username = os.environ.get('SLACKIFY_USERNAME')
 password = os.environ.get('SLACKIFY_PASSWORD')
 
+command_lib = {"all" : {"func" : self.tag_all}, "kick" : {"func" : self.kick}}
+
 # Subclass fbchat.Client and override required methods
 class EchoBot(Client):
 
@@ -25,21 +27,31 @@ class EchoBot(Client):
         self.send(Message(text=message_text), thread_id=thread_id, thread_type=thread_type)
 
     def onMessage(self, author_id, message_object, thread_id, thread_type, **kwargs):
+        global command_lib
+
         self.markAsDelivered(thread_id, message_object.uid)
         self.markAsRead(thread_id)
 
         log.info("{} from {} in {}".format(message_object, thread_id, thread_type.name))
 
-        function_lib = {"all" : self.tag_all, "meet" : self.hear_meet}
         # If you're not the author, echo
         if author_id != self.uid:
             if message_object.text and message_object.text.split(' ')[0][0] == '!':
-                function_called = function_lib.get(message_object.text.split(' ')[0][1:])
-                if function_called is not None:
-                    function_called(author_id, message_object, thread_id, thread_type)
+                command = command_lib.get(message_object.text.split(' ')[0][1:])
+                if command is not None:
+                    command["func"](author_id, message_object, thread_id, thread_type)
             #self.send(message_object, thread_id=thread_id, thread_type=thread_type)
 
-        
+    def kick(self, author_id, message_object, thread_id, thread_type, **kwargs):
+        gc_thread = Client.fetchThreadInfo(self, thread_id)[thread_id]
+        person_to_kick = message_object.text.split(' ')[1:]
+        for person in Client.fetchAllUsersFromThreads(self=self, threads=[gc_thread]):
+            names = [person.first_name, person.last_name, person.nickname]
+            if any([name in person_to_kick for name in names]):
+                log.info("{} removed {} from {}").format(author_id, person_to_kick, thread_id)
+                Client.removeUserFromGroup(user_id=person.uid, thread_id=thread_id)
+                return
+        log.info("Unable to remove: person not found.")
 
 client = EchoBot(str(username), str(password))
 client.listen()
