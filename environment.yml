@@ -32,5 +32,4 @@ dependencies:
     - requests==2.24.0
     - soupsieve==2.0.1
     - urllib3==1.25.9
-prefix: /home/kanav/miniconda3/envs/slackify
 
