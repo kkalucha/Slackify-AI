@@ -10,6 +10,7 @@ export SLACKIFY_USERNAME=$username
 export SLACKIFY_PASSWORD=$password
 
 sudo apt-get update
+sudo apt update
 sudo apt-get install -y unzip openjdk-8-jre-headless xvfb libxi6 libgconf-2-4
 
 sudo curl -sS -o - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add
@@ -29,7 +30,7 @@ sudo chmod 0755 /usr/local/bin/chromedriver
 echo Google Chrome installed!
 
 sudo apt install python3-pip
-pip install --upgrade pip
-pip install -r requirements.txt
+pip3 install --upgrade pip
+pip3 install -r requirements.txt
 
 echo Setup Complete!
