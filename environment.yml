@@ -1,0 +1,36 @@
+name: slackify
+channels:
+  - defaults
+dependencies:
+  - _libgcc_mutex=0.1=main
+  - ca-certificates=2020.6.24=0
+  - certifi=2020.6.20=py38_0
+  - ld_impl_linux-64=2.33.1=h53a641e_7
+  - libedit=3.1.20191231=h7b6447c_0
+  - libffi=3.3=he6710b0_2
+  - libgcc-ng=9.1.0=hdf63c60_0
+  - libstdcxx-ng=9.1.0=hdf63c60_0
+  - ncurses=6.2=he6710b0_1
+  - openssl=1.1.1g=h7b6447c_0
+  - pip=20.1.1=py38_1
+  - python=3.8.3=hcff3b4d_2
+  - readline=8.0=h7b6447c_0
+  - setuptools=47.3.1=py38_0
+  - sqlite=3.32.3=h62c20be_0
+  - tk=8.6.10=hbc83047_0
+  - wheel=0.34.2=py38_0
+  - xz=5.2.5=h7b6447c_0
+  - zlib=1.2.11=h7b6447c_3
+  - pip:
+    - aenum==2.2.3
+    - attrs==19.3.0
+    - beautifulsoup4==4.9.1
+    - chardet==3.0.4
+    - fbchat==1.9.7
+    - idna==2.10
+    - paho-mqtt==1.5.0
+    - requests==2.24.0
+    - soupsieve==2.0.1
+    - urllib3==1.25.9
+prefix: /home/kanav/miniconda3/envs/slackify
+
