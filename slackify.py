@@ -1,8 +1,9 @@
 import os
 from fbchat import log, Client
+from decouple import config
 
-username = os.environ.get('SLACKIFY_USERNAME')
-password = os.environ.get('SLACKIFY_PASSWORD')
+username = config('SLACKIFY_USERNAME')
+password = config('SLACKIFY_PASSWORD')
 
 # Subclass fbchat.Client and override required methods
 class EchoBot(Client):
