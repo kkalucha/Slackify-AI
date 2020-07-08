@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import datetime
 from fbchat import log, Client, Message, Mention
 
 username = os.environ.get('SLACKIFY_USERNAME')
@@ -17,6 +18,13 @@ class EchoBot(Client):
         for person in Client.fetchAllUsersFromThreads(self=self, threads=[gc_thread]):
             mention_list.append(Mention(thread_id=person.uid, offset=0, length=1))
         self.send(Message(text=message_text, mentions=mention_list), thread_id=thread_id, thread_type=thread_type)
+
+    def hear_meet(self, author_id, message_object, thread_id, thread_type, **kwargs):
+        gc_thread = Client.fetchThreadInfo(self, thread_id)[thread_id]
+        date = datetime.strptime(message_object.text.split(' ')[1], '%m/%d/%y')
+
+        message_text = 'Meeting at' + strfrtime(date, '%A, %m/%d/%y') +'. Who\'s in?'
+        self.send(Message(text=message_text), thread_id=thread_id, thread_type=thread_type)
 
     def onMessage(self, author_id, message_object, thread_id, thread_type, **kwargs):
         global command_lib
