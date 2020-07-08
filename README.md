@@ -4,4 +4,6 @@ Slackify AI is a Facebook Messenger bot designed to bring the best features of S
 
 ## To run on an instance (Ubuntu 18.04)
 1. clone repo into new instance
-2. run `./setup.sh`
+2. `cd Slackify-AI`
+3. run `./setup.sh`
+4. Enter Slackifyusername and password when prompted
