@@ -6,10 +6,8 @@ from fbchat import log, Client, Message, Mention
 username = os.environ.get('SLACKIFY_USERNAME')
 password = os.environ.get('SLACKIFY_PASSWORD')
 
-command_lib = {"all" : {"func" : self.tag_all}, "kick" : {"func" : self.kick}, "meet" : {"func" : self.hear_meet}}
-
 # Subclass fbchat.Client and override required methods
-class EchoBot(Client):
+class SlackifyBot(Client):
 
     def tag_all(self, author_id, message_object, thread_id, thread_type, **kwargs):
         gc_thread = Client.fetchThreadInfo(self, thread_id)[thread_id]
@@ -23,11 +21,19 @@ class EchoBot(Client):
         gc_thread = Client.fetchThreadInfo(self, thread_id)[thread_id]
         date = datetime.strptime(message_object.text.split(' ')[1], '%m/%d/%y')
 
-        message_text = 'Meeting at' + strfrtime(date, '%A, %m/%d/%y') +'. Who\'s in?'
+        message_text = 'Meeting at' + date.strftime('%A, %m/%d/%y') +'. Who\'s in?'
         self.send(Message(text=message_text), thread_id=thread_id, thread_type=thread_type)
 
+    def laugh(self, author_id, message_object, thread_id, thread_type, **kwargs):
+        """Laughs."""
+        gc_thread = Client.fetchThreadInfo(self, thread_id)[thread_id]
+        self.sendLocalVoiceClips(clip_paths="resources/laugh.aac", thread_id=thread_id, thread_type=thread_type)
+        
     def onMessage(self, author_id, message_object, thread_id, thread_type, **kwargs):
-        global command_lib
+        command_lib = {"all" : {"func" : self.tag_all}, 
+                "kick" : {"func" : self.kick}, 
+                "meet" : {"func" : self.hear_meet},
+                "laugh" : {"func" : self.laugh}}
 
         self.markAsDelivered(thread_id, message_object.uid)
         self.markAsRead(thread_id)
@@ -53,5 +59,5 @@ class EchoBot(Client):
                 return
         log.info("Unable to remove: person not found.")
 
-client = EchoBot(str(username), str(password))
+client = SlackifyBot(str(username), str(password))
 client.listen()
