@@ -6,7 +6,7 @@ from fbchat import log, Client, Message, Mention
 username = os.environ.get('SLACKIFY_USERNAME')
 password = os.environ.get('SLACKIFY_PASSWORD')
 
-command_lib = {"all" : {"func" : self.tag_all}, "kick" : {"func" : self.kick}}
+command_lib = {"all" : {"func" : self.tag_all}, "kick" : {"func" : self.kick}, "meet" : {"func" : self.hear_meet}}
 
 # Subclass fbchat.Client and override required methods
 class EchoBot(Client):
