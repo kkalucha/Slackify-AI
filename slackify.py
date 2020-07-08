@@ -2,8 +2,8 @@ import os
 import time
 from fbchat import log, Client, Message, Mention
 
-username = os.environ.get('SLACKIFY_USERNAME')
-password = os.environ.get('SLACKIFY_PASSWORD')
+username = config('SLACKIFY_USERNAME')
+password = config('SLACKIFY_PASSWORD')
 
 # Subclass fbchat.Client and override required methods
 class EchoBot(Client):
