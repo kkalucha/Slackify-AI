@@ -1,6 +1,6 @@
 import time
 from datetime import datetime
-from dateutil.parser import parse
+from dateparser import parse
 from fbchat import log, Client, Message, Mention, Poll, PollOption
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
@@ -12,18 +12,20 @@ def tag_all(client, author_id, message_object, thread_id, thread_type):
     client.send(Message(text=message_text, mentions=mention_list), thread_id=thread_id, thread_type=thread_type)
 
 def hear_meet(client, author_id, message_object, thread_id, thread_type):
+    today = datetime.today()
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     try:
-        date = parse(message_object.text.split(' ')[1])
+        date = parse("".join(message_object.text.split(' ')[1:]))
     except ValueError: # date not found in string
         client.send(Message(text='Oi you forgot the date dingus'), thread_id=thread_id, thread_type=thread_type)
         return
+    if isinstance(date, type(None)):
+        client.send(Message(text='I can\'t read that.'), thread_id=thread_id, thread_type=thread_type)
+    if date < today:
+        client.send(Message(text='I\'m not stupid that date has passed.'), thread_id=thread_id, thread_type=thread_type))
     time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
-    meeting = Poll(title=f"Meeting at {datetime.strftime(date, '%A, %x')}. Who's in?", options=[PollOption(title=time) for time in time_options])
+    meeting = Poll(title=f"Meeting on {datetime.strftime(date, '%A, %x')}. Who's in?", options=[PollOption(text=time) for time in time_options])
     client.createPoll(poll=meeting, thread_id=thread_id)
-
-def onPollCreated(client, mid=None, poll=None, author_id=None, thread_id=None, thread_type=None, ts=None, metadata=None, msg=None):
-    """Auto-tags everyone any time a poll is created."""
     self.tag_all(client, author_id, None, thread_id, thread_type)
 
 def laugh(client, author_id, message_object, thread_id, thread_type):
@@ -55,9 +57,8 @@ def aru_comment(client, author_id, message_object, thread_id, thread_type):
     client.send(Message(text="Commit pushed to origin master"), thread_id=thread_id, thread_type=thread_type)
 
 def removeme(client, author_id, message_object, thread_id, thread_type):
-    if message_object.text == "!removeme" and thread_type == ThreadType.GROUP:
-        log.info("{} will be removed from {}".format(author_id, thread_id))
-        client.removeUserFromGroup(author_id, thread_id=thread_id)
+    print("{} will be removed from {}".format(author_id, thread_id))
+    client.removeUserFromGroup(author_id, thread_id=thread_id)
 
 command_lib = {"all" : {"func" : tag_all}, 
                 "kick" : {"func" : kick}, 
