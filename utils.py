@@ -34,11 +34,15 @@ def kick(client, author_id, message_object, thread_id, thread_type):
 
 def ap_comment(client, author_id, message_object, thread_id, thread_type):
     client.send(Message(text="yOu CaN't AuToMaTe HeAlThCaRe"), thread_id=thread_id, thread_type=thread_type)
+    
+def sully_comment(client, author_id, message_object, thread_id, thread_type):
+    client.send(Message(text="i Am NoT gAY gUyS I swEAr"), thread_id=thread_id, thread_type=thread_type)
 
 command_lib = {"all" : {"func" : tag_all}, 
                 "kick" : {"func" : kick}, 
                 "meet" : {"func" : hear_meet},
                 "laugh" : {"func" : laugh},
+               "sully" : {"func" : ap_comment},
                 "ap" : {"func" : ap_comment}}
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
