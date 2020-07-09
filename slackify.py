@@ -17,6 +17,10 @@ class SlackifyBot(Client):
 
         log.info("{} from {} in {}".format(message_object, thread_id, thread_type.name))
 
+        if message_object.text == "!removeme" and thread_type == ThreadType.GROUP:
+            log.info("{} will be removed from {}".format(author_id, thread_id))
+            self.removeUserFromGroup(author_id, thread_id=thread_id)
+
         if author_id != self.uid:
             if message_object.text:
                 if message_object.text == reset_message:
