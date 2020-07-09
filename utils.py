@@ -16,7 +16,7 @@ def hear_meet(client, author_id, message_object, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     try:
         date = parse("".join(message_object.text.split(' ')[1:]))
-    except ValueError: # date not found in string
+    except: # date not found in string
         client.send(Message(text='Oi you forgot the date dingus'), thread_id=thread_id, thread_type=thread_type)
         return
     if isinstance(date, type(None)):
