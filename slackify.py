@@ -17,7 +17,6 @@ class SlackifyBot(Client):
 
         log.info("{} from {} in {}".format(message_object, thread_id, thread_type.name))
 
-        # If you're not the author, echo
         if author_id != self.uid:
             if message_object.text:
                 if message_object.text == reset_message:

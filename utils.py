@@ -5,7 +5,7 @@ from fbchat import log, Client, Message, Mention
 def tag_all(client, author_id, message_object, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     mention_list = []
-    message_text = '@penismen'
+    message_text = '@all'
     for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
         mention_list.append(Mention(thread_id=person.uid, offset=0, length=1))
     client.send(Message(text=message_text, mentions=mention_list), thread_id=thread_id, thread_type=thread_type)
