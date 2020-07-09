@@ -1,6 +1,7 @@
 import time
 from datetime import datetime
-from fbchat import log, Client, Message, Mention
+from dateutil.parser import parse
+from fbchat import log, Client, Message, Mention, Poll, PollOption
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
@@ -12,9 +13,18 @@ def tag_all(client, author_id, message_object, thread_id, thread_type):
 
 def hear_meet(client, author_id, message_object, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
-    date = datetime.strptime(message_object.text.split(' ')[1], '%m/%d/%y')
-    message_text = 'Meeting at' + date.strftime('%A, %m/%d/%y') +'. Who\'s in?'
-    client.send(Message(text=message_text), thread_id=thread_id, thread_type=thread_type)
+    try:
+        date = parse(message_object.text.split(' ')[1])
+    except ValueError: # date not found in string
+        client.send(Message(text='Oi you forgot the date dingus'), thread_id=thread_id, thread_type=thread_type)
+        return
+    time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
+    meeting = Poll(title=f"Meeting at {datetime.strftime(date, '%A, %x')}. Who's in?", options=[PollOption(title=time) for time in time_options])
+    client.createPoll(poll=meeting, thread_id=thread_id)
+
+def onPollCreated(client, mid=None, poll=None, author_id=None, thread_id=None, thread_type=None, ts=None, metadata=None, msg=None):
+    """Auto-tags everyone any time a poll is created."""
+    self.tag_all(client, author_id, None, thread_id, thread_type)
 
 def laugh(client, author_id, message_object, thread_id, thread_type):
     """Laughs."""
