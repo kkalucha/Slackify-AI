@@ -13,7 +13,6 @@ def tag_all(client, author_id, message_object, thread_id, thread_type):
 def hear_meet(client, author_id, message_object, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     date = datetime.strptime(message_object.text.split(' ')[1], '%m/%d/%y')
-
     message_text = 'Meeting at' + date.strftime('%A, %m/%d/%y') +'. Who\'s in?'
     client.send(Message(text=message_text), thread_id=thread_id, thread_type=thread_type)
 
@@ -33,10 +32,14 @@ def kick(client, author_id, message_object, thread_id, thread_type):
             return
     log.info("Unable to remove: person not found.")
 
+def ap_comment(client, author_id, message_object, thread_id, thread_type):
+    client.send(Message(text="yOu CaN't AuToMaTe HeAlThCaRe"), thread_id=thread_id, thread_type=thread_type)
+
 command_lib = {"all" : {"func" : tag_all}, 
                 "kick" : {"func" : kick}, 
                 "meet" : {"func" : hear_meet},
-                "laugh" : {"func" : laugh}}
+                "laugh" : {"func" : laugh},
+                "ap" : {"func" : ap_comment}}
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
