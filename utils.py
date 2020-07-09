@@ -42,7 +42,7 @@ command_lib = {"all" : {"func" : tag_all},
                 "kick" : {"func" : kick}, 
                 "meet" : {"func" : hear_meet},
                 "laugh" : {"func" : laugh},
-               "sully" : {"func" : ap_comment},
+               "sully" : {"func" : sully_comment},
                 "ap" : {"func" : ap_comment}}
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
