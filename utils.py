@@ -26,7 +26,7 @@ def hear_meet(client, author_id, message_object, thread_id, thread_type):
     time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
     meeting = Poll(title=f"Meeting on {datetime.strftime(date, '%A, %x')}. Who's in?", options=[PollOption(text=time) for time in time_options])
     client.createPoll(poll=meeting, thread_id=thread_id)
-    self.tag_all(client, author_id, None, thread_id, thread_type)
+    client.tag_all(author_id, None, thread_id, thread_type)
 
 def laugh(client, author_id, message_object, thread_id, thread_type):
     """Laughs."""
