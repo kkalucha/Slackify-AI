@@ -41,6 +41,9 @@ def sully_comment(client, author_id, message_object, thread_id, thread_type):
 def pranshu_comment(client, author_id, message_object, thread_id, thread_type):
     client.send(Message(text="Pranshu is a student at the University of Illinois Urbana-Champaign studying Computer Science and Statistics. My interests lie in High Performance Computing (HPC) and in AI/Deep Learning. Recently I attended the Super Computing 19 conference where I represented my school as a member of the University of Illinois Student Cluster Competition team; our team won 2nd place nationwide. I've recently also won 2nd place at the National Center for Supercomputing Applications Deep Learning Hackathon. At the Technology Student Association’s national conference in June, 2019, my team won 1st place out of over 75 teams in a research presentation competition on exploring a novel application of artificial intelligence in a domain field (website: pinkai.tech). I am an enthusiastic candidate for any role relating to HPC or Deep Learning; I hope to expand my skill set in the summer of 2020 through an internship at a company focusing on these disciplines. "), thread_id=thread_id, thread_type=thread_type)
 
+def aru_comment(client, author_id, message_object, thread_id, thread_type):
+    client.send(Message(text="Commit pushed to origin master"),thread_id=thread_id, thread_type=thread_type)
+
 command_lib = {"all" : {"func" : tag_all}, 
                 "kick" : {"func" : kick}, 
                 "meet" : {"func" : hear_meet},
