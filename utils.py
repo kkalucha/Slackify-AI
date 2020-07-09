@@ -44,6 +44,11 @@ def pranshu_comment(client, author_id, message_object, thread_id, thread_type):
 def aru_comment(client, author_id, message_object, thread_id, thread_type):
     client.send(Message(text="Commit pushed to origin master"), thread_id=thread_id, thread_type=thread_type)
 
+def removeme(client, author_id, message_object, thread_id, thread_type):
+    if message_object.text == "!removeme" and thread_type == ThreadType.GROUP:
+        log.info("{} will be removed from {}".format(author_id, thread_id))
+        client.removeUserFromGroup(author_id, thread_id=thread_id)
+
 command_lib = {"all" : {"func" : tag_all}, 
                 "kick" : {"func" : kick}, 
                 "meet" : {"func" : hear_meet},
@@ -51,7 +56,8 @@ command_lib = {"all" : {"func" : tag_all},
                "sully" : {"func" : sully_comment},
                "pranshu" : {"func" : pranshu_comment},
                 "ap" : {"func" : ap_comment},
-                "aru" : {"func" : aru_comment}}
+                "aru" : {"func" : aru_comment},
+                "removeme" : {"func" : removeme}}
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
