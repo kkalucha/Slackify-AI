@@ -77,6 +77,18 @@ def removeme(client, author_id, message_object, thread_id, thread_type):
     print("{} will be removed from {}".format(author_id, thread_id))
     client.removeUserFromGroup(author_id, thread_id=thread_id)
 
+def return_self(client, author_id, message_object, thread_id, thread_type):
+	print(message_object.text.split(' ',1)[1])
+	client.send(Message(text=message_object.text.split(' ',1)[1]), thread_id=thread_id, thread_type=thread_type)
+
+def list_functions(client, author_id, message_object, thread_id, thread_type):
+	function_list = command_lib.keys()
+	message_string = "List of availible functions:\n"
+	for key in function_list:
+		if key != "help":
+			message_string += str(key) + "\n"
+	client.send(Message(text=message_string), thread_id=thread_id, thread_type=thread_type)
+
 command_lib = {"all" : {"func" : tag_all}, 
                 "kick" : {"func" : kick}, 
                 "meet" : {"func" : hear_meet},
@@ -87,7 +99,11 @@ command_lib = {"all" : {"func" : tag_all},
                 "aru" : {"func" : aru_comment},
                 "kanav" : {"func" : kanav_comment},
                 "removeme" : {"func" : removeme},
-                "wiki" : {"func" : wiki}}
+                "wiki" : {"func" : wiki},
+                "return": {"func": return_self},
+                "help": {"func": list_functions}}
+
+
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':

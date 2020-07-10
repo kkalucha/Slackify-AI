@@ -4,9 +4,14 @@ from importlib import reload
 import utils
 from datetime import datetime
 
+"""
 username = os.environ.get('SLACKIFY_USERNAME')
 password = os.environ.get('SLACKIFY_PASSWORD')
 secret_key = os.environ.get('SLACKIFY_SECRET_KEY')
+"""
+username = 15103207243
+password = 'Pac40768!'
+secret_key = 'abc'
 reset_message = '!reset ' + secret_key
 
 # Subclass fbchat.Client and override required methods
