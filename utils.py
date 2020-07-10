@@ -96,17 +96,8 @@ def kick_random(client, author_id, message_object, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     person_to_kick = message_object.text.split(' ')[1:]
     persons_list = Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread])
-    
-    num = random.randint(0, len(persons_list) + 3*len(persons_list)/3) #random number within range
-    if (num > len(persons_list)-1):
-        to_kick = author_id
-    else:
-        person = persons_list[num]
-
-    for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
-        if (person.uid == to_kick):
-            person = person
-
+    num = random.randint(0, len(persons_list)-1) #random number within range
+    person = persons_list[num]
     log.info("{} removed {} from {}".format(author_id, "random", thread_id))
     client.removeUserFromGroup(person.uid, thread_id=thread_id)
     return
