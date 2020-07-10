@@ -39,6 +39,7 @@ def wiki(client, author_id, message_object, thread_id, thread_type):
         return
     except wikipedia.exceptions.WikipediaException:
         client.send(Message(text='You didn\'t give me anything to search dipshit.'), thread_id=thread_id, thread_type=thread_type)
+        return
     client.send(search_result, thread_id=thread_id, thread_type=thread_type)
 
 def laugh(client, author_id, message_object, thread_id, thread_type):
