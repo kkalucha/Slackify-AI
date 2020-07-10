@@ -33,12 +33,15 @@ def random_image(client, author_id, message_object,thread_id,thread_type):
 def hear_meet(client, author_id, message_object, thread_id, thread_type):
     today = date.today() + timedelta(days=1)
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
-    date = parse(message_object.text.split(' ', 1)[1])
-    # parsing date failed
-    if isinstance(date, type(None)):
+    try:
+        date = parse(message_object.text.split(' ', 1)[1])
+        assert(not isinstance(date, type(None)))
+        if date < today:
+            raise ValueError
+    except (IndexError, AssertionError) as e:
         client.send(Message(text='I can\'t read that date.'), thread_id=thread_id, thread_type=thread_type)
         return
-    if date < today:
+    except ValueError:
         client.send(Message(text='I\'m not stupid that date has passed.'), thread_id=thread_id, thread_type=thread_type)
         return
     time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
