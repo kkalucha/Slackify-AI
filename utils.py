@@ -1,6 +1,6 @@
 import time
 import random
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from dateparser import parse
 import wikipedia
 from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, ShareAttachment
