@@ -1,6 +1,6 @@
 import time
 from datetime import datetime
-from fbchat import log, Client, Message, Mention
+from fbchat import log, Client, Message, Mention, ThreadType
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
@@ -27,8 +27,8 @@ def kick(client, author_id, message_object, thread_id, thread_type):
     for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
         names = [person.first_name, person.last_name, person.nickname]
         if any([name in person_to_kick for name in names]):
-            log.info("{} removed {} from {}").format(author_id, person_to_kick, thread_id)
-            Client.removeUserFromGroup(user_id=person.uid, thread_id=thread_id)
+            log.info("{} removed {} from {}".format(author_id, person_to_kick, thread_id))
+            client.removeUserFromGroup(person.uid, thread_id=thread_id)
             return
     log.info("Unable to remove: person not found.")
 
