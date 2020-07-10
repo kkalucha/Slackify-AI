@@ -6,6 +6,7 @@ import wikipedia
 from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, ShareAttachment
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
+    """Tags everyone in the chat"""
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     mention_list = []
     message_text = '@all'
@@ -14,6 +15,7 @@ def tag_all(client, author_id, message_object, thread_id, thread_type):
     client.send(Message(text=message_text, mentions=mention_list), thread_id=thread_id, thread_type=thread_type)
 
 def random_mention(client, author_id, message_object, thread_id, thread_type):
+    """Tags a random person"""
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     person_list = []
     for person in Client.fetchAllUsersFromThreads(self= client, threads = [gc_thread]):
@@ -25,9 +27,11 @@ def random_mention(client, author_id, message_object, thread_id, thread_type):
     client.send(Message(text = "@" + person_name + " you have been chosen", mentions=[rand_mention]), thread_id=thread_id, thread_type=thread_type)
 
 def random_image(client, author_id, message_object,thread_id,thread_type):
+    """Sends a random image to chat"""
     client.sendRemoteImage("https://scontent-sjc3-1.xx.fbcdn.net/v/t1.0-9/31706596_988075581341800_8419953087938035712_o.jpg?_nc_cat=101&_nc_sid=e007fa&_nc_ohc=6WKPJKXT4yQAX8izxEX&_nc_ht=scontent-sjc3-1.xx&oh=dd30e0dc74cffd606248ef9151576fe2&oe=5F2E0EBC",message=Message(text='This should work'), thread_id=thread_id, thread_type=thread_type)
     
 def hear_meet(client, author_id, message_object, thread_id, thread_type):
+    """Creates poll for meeting times on a given day"""
     today = datetime.today()
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     try:
@@ -45,7 +49,7 @@ def hear_meet(client, author_id, message_object, thread_id, thread_type):
     client.tag_all(client, author_id, None, thread_id, thread_type)
 
 def wiki(client, author_id, message_object, thread_id, thread_type):
-    """Checks wikipedia for term."""
+    """Checks wikipedia for term"""
     try:
         search_term = "".join(message_object.text.split(" ")[1:])
         search_result = Message(text=wikipedia.summary(search_term, sentences=2))
@@ -58,11 +62,12 @@ def wiki(client, author_id, message_object, thread_id, thread_type):
     client.send(search_result, thread_id=thread_id, thread_type=thread_type)
 
 def laugh(client, author_id, message_object, thread_id, thread_type):
-    """Laughs."""
+    """Laughs"""
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     client.sendLocalVoiceClips(clip_paths="resources/laugh.aac", thread_id=thread_id, thread_type=thread_type)
 
 def kick(client, author_id, message_object, thread_id, thread_type):
+    """Kicks the specified user from the chat"""
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     person_to_kick = message_object.text.split(' ')[1:]
     for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
@@ -74,25 +79,32 @@ def kick(client, author_id, message_object, thread_id, thread_type):
     log.info("Unable to remove: person not found.")
 
 def ap_comment(client, author_id, message_object, thread_id, thread_type):
+    """Apurv's special comment"""
     client.send(Message(text="yOu CaN't AuToMaTe HeAlThCaRe"), thread_id=thread_id, thread_type=thread_type)
     
 def sully_comment(client, author_id, message_object, thread_id, thread_type):
+    """Sulaiman's special comment"""
     client.send(Message(text="i Am NoT ___ gUyS I swEAr"), thread_id=thread_id, thread_type=thread_type)
     
 def pranshu_comment(client, author_id, message_object, thread_id, thread_type):
+    """Pranshu's special comment"""
     client.send(Message(text="Pranshu is a student at the University of Illinois Urbana-Champaign studying Computer Science and Statistics. My interests lie in High Performance Computing (HPC) and in AI/Deep Learning. Recently I attended the Super Computing 19 conference where I represented my school as a member of the University of Illinois Student Cluster Competition team; our team won 2nd place nationwide. I've recently also won 2nd place at the National Center for Supercomputing Applications Deep Learning Hackathon. At the Technology Student Association’s national conference in June, 2019, my team won 1st place out of over 75 teams in a research presentation competition on exploring a novel application of artificial intelligence in a domain field (website: pinkai.tech). I am an enthusiastic candidate for any role relating to HPC or Deep Learning; I hope to expand my skill set in the summer of 2020 through an internship at a company focusing on these disciplines. "), thread_id=thread_id, thread_type=thread_type)
 
 def aru_comment(client, author_id, message_object, thread_id, thread_type):
+    """Arunav's special comment"""
     client.send(Message(text="Commit pushed to origin master"), thread_id=thread_id, thread_type=thread_type)
 
 def kanav_comment(client, author_id, message_object, thread_id, thread_type):
+    """Kanav's special comment"""
     client.send(Message(text="If you commit to master I will kILL you"), thread_id=thread_id, thread_type=thread_type)
 
 def removeme(client, author_id, message_object, thread_id, thread_type):
+    """Removes the person who calls this from the chat"""
     print("{} will be removed from {}".format(author_id, thread_id))
     client.removeUserFromGroup(author_id, thread_id=thread_id)
                    
 def kick_random(client, author_id, message_object, thread_id, thread_type):
+    """Kicks a random person from the chat"""
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     person_to_kick = message_object.text.split(' ')[1:]
     persons_list = Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread])
@@ -104,15 +116,17 @@ def kick_random(client, author_id, message_object, thread_id, thread_type):
     log.info("Unable to remove: person not found.")
 
 def return_self(client, author_id, message_object, thread_id, thread_type):
+    """Echoes what you tell the bot to say"""
 	print(message_object.text.split(' ',1)[1])
 	client.send(Message(text=message_object.text.split(' ',1)[1]), thread_id=thread_id, thread_type=thread_type)
 
 def list_functions(client, author_id, message_object, thread_id, thread_type):
+    """Lists all available functions"""
 	function_list = command_lib.keys()
 	message_string = "List of availible functions:\n"
 	for key in function_list:
 		if key != "help":
-			message_string += str(key) + "\n"
+			message_string += f'{str(key)} - {command_lib[key]['func'].__doc__}\n'
 	client.send(Message(text=message_string), thread_id=thread_id, thread_type=thread_type)
 
 command_lib = {"all" : {"func" : tag_all}, 
