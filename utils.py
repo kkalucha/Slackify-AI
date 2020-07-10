@@ -3,6 +3,7 @@ from datetime import datetime
 from dateparser import parse
 import wikipedia
 from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType
+import random
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
