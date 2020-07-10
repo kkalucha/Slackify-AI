@@ -76,6 +76,25 @@ def kanav_comment(client, author_id, message_object, thread_id, thread_type):
 def removeme(client, author_id, message_object, thread_id, thread_type):
     print("{} will be removed from {}".format(author_id, thread_id))
     client.removeUserFromGroup(author_id, thread_id=thread_id)
+                   
+def kick_random(client, author_id, message_object, thread_id, thread_type):
+    gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
+    person_to_kick = message_object.text.split(' ')[1:]
+    persons_list = Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread])
+    
+    num = random.randint(0, len(persons_list) + 3*len(persons_list)/3) #random number within range
+    if (num > len(persons_list)-1):
+        to_kick = author_id
+    person = persons_list[num]
+
+    for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
+        if (person.uid == to_kick):
+            person = person
+
+    log.info("{} removed {} from {}".format(author_id, "random", thread_id))
+    client.removeUserFromGroup(person.uid, thread_id=thread_id)
+    return
+    log.info("Unable to remove: person not found.")
 
 command_lib = {"all" : {"func" : tag_all}, 
                 "kick" : {"func" : kick}, 
@@ -86,6 +105,7 @@ command_lib = {"all" : {"func" : tag_all},
                 "ap" : {"func" : ap_comment},
                 "aru" : {"func" : aru_comment},
                 "kanav" : {"func" : kanav_comment},
+               "kickr" : {"func" : kick_random},
                 "removeme" : {"func" : removeme},
                 "wiki" : {"func" : wiki}}
 
