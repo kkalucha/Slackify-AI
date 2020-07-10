@@ -1,6 +1,7 @@
 import time
 from datetime import datetime
 from dateparser import parse
+import wikipedia
 from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
@@ -22,11 +23,24 @@ def hear_meet(client, author_id, message_object, thread_id, thread_type):
     if isinstance(date, type(None)):
         client.send(Message(text='I can\'t read that.'), thread_id=thread_id, thread_type=thread_type)
     if date < today:
-        client.send(Message(text='I\'m not stupid that date has passed.'), thread_id=thread_id, thread_type=thread_type))
+        client.send(Message(text='I\'m not stupid that date has passed.'), thread_id=thread_id, thread_type=thread_type)
     time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
     meeting = Poll(title=f"Meeting on {datetime.strftime(date, '%A, %x')}. Who's in?", options=[PollOption(text=time) for time in time_options])
     client.createPoll(poll=meeting, thread_id=thread_id)
-    self.tag_all(client, author_id, None, thread_id, thread_type)
+    client.tag_all(client, author_id, None, thread_id, thread_type)
+
+def wiki(client, author_id, message_object, thread_id, thread_type):
+    """Checks wikipedia for term."""
+    try:
+        search_term = "".join(message_object.text.split(" ")[1:])
+        search_result = Message(text=wikipedia.summary(search_term, sentences=2))
+    except wikipedia.exceptions.PageError:
+        client.send(Message(text='Invalid search term.'), thread_id=thread_id, thread_type=thread_type)
+        return
+    except wikipedia.exceptions.WikipediaException:
+        client.send(Message(text='You didn\'t give me anything to search dipshit.'), thread_id=thread_id, thread_type=thread_type)
+        return
+    client.send(search_result, thread_id=thread_id, thread_type=thread_type)
 
 def laugh(client, author_id, message_object, thread_id, thread_type):
     """Laughs."""
@@ -56,6 +70,9 @@ def pranshu_comment(client, author_id, message_object, thread_id, thread_type):
 def aru_comment(client, author_id, message_object, thread_id, thread_type):
     client.send(Message(text="Commit pushed to origin master"), thread_id=thread_id, thread_type=thread_type)
 
+def kanav_comment(client, author_id, message_object, thread_id, thread_type):
+    client.send(Message(text="If you commit to master I will kILL you"), thread_id=thread_id, thread_type=thread_type)
+
 def removeme(client, author_id, message_object, thread_id, thread_type):
     print("{} will be removed from {}".format(author_id, thread_id))
     client.removeUserFromGroup(author_id, thread_id=thread_id)
@@ -68,7 +85,9 @@ command_lib = {"all" : {"func" : tag_all},
                "pranshu" : {"func" : pranshu_comment},
                 "ap" : {"func" : ap_comment},
                 "aru" : {"func" : aru_comment},
-                "removeme" : {"func" : removeme}}
+                "kanav" : {"func" : kanav_comment},
+                "removeme" : {"func" : removeme},
+                "wiki" : {"func" : wiki}}
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
