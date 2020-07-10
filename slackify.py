@@ -7,6 +7,7 @@ from datetime import datetime
 username = os.environ.get('SLACKIFY_USERNAME')
 password = os.environ.get('SLACKIFY_PASSWORD')
 secret_key = os.environ.get('SLACKIFY_SECRET_KEY')
+reset_message = '!reset ' + secret_key
 
 # Subclass fbchat.Client and override required methods
 class SlackifyBot(Client):
