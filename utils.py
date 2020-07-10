@@ -31,7 +31,7 @@ def random_image(client, author_id, message_object,thread_id,thread_type):
     client.sendRemoteImage("https://scontent-sjc3-1.xx.fbcdn.net/v/t1.0-9/31706596_988075581341800_8419953087938035712_o.jpg?_nc_cat=101&_nc_sid=e007fa&_nc_ohc=6WKPJKXT4yQAX8izxEX&_nc_ht=scontent-sjc3-1.xx&oh=dd30e0dc74cffd606248ef9151576fe2&oe=5F2E0EBC",message=Message(text='This should work'), thread_id=thread_id, thread_type=thread_type)
     
 def hear_meet(client, author_id, message_object, thread_id, thread_type):
-    today = date.today() + datetime.timedelta(days=1)
+    today = date.today() + timedelta(days=1)
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     date = parse(message_object.text.split(' ', 1)[1])
     # parsing date failed
@@ -53,7 +53,7 @@ def handle_meeting_vote(client, author_id, poll, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     
     # update meeting_polls by checking today's date, and prune any that've passed
-    today = date.today() + datetime.timedelta(days=1)
+    today = date.today() + timedelta(days=1)
     for poll, properties in zip(meeting_polls):
         if properties['date'] < today:
             meeting_polls.pop(poll)
