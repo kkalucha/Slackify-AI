@@ -1,8 +1,9 @@
 import time
+import random
 from datetime import datetime
 from dateparser import parse
 import wikipedia
-from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType
+from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, ShareAttachment
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
@@ -12,6 +13,20 @@ def tag_all(client, author_id, message_object, thread_id, thread_type):
         mention_list.append(Mention(thread_id=person.uid, offset=0, length=1))
     client.send(Message(text=message_text, mentions=mention_list), thread_id=thread_id, thread_type=thread_type)
 
+def random_mention(client, author_id, message_object, thread_id, thread_type):
+    gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
+    person_list = []
+    for person in Client.fetchAllUsersFromThreads(self= client, threads = [gc_thread]):
+        person_list.append(person)
+    chosen_number = random.randrange(0,len(person_list),1)
+    chosen_person = person_list[chosen_number]
+    person_name = chosen_person.first_name
+    rand_mention = Mention(thread_id = chosen_person.uid, offset=0, length= len(person_name)+1)
+    client.send(Message(text = "@" + person_name + " you have been chosen", mentions=[rand_mention]), thread_id=thread_id, thread_type=thread_type)
+
+def random_image(client, author_id, message_object,thread_id,thread_type):
+    client.sendRemoteImage("https://scontent-sjc3-1.xx.fbcdn.net/v/t1.0-9/31706596_988075581341800_8419953087938035712_o.jpg?_nc_cat=101&_nc_sid=e007fa&_nc_ohc=6WKPJKXT4yQAX8izxEX&_nc_ht=scontent-sjc3-1.xx&oh=dd30e0dc74cffd606248ef9151576fe2&oe=5F2E0EBC",message=Message(text='This should work'), thread_id=thread_id, thread_type=thread_type)
+    
 def hear_meet(client, author_id, message_object, thread_id, thread_type):
     today = datetime.today()
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
@@ -76,6 +91,17 @@ def kanav_comment(client, author_id, message_object, thread_id, thread_type):
 def removeme(client, author_id, message_object, thread_id, thread_type):
     print("{} will be removed from {}".format(author_id, thread_id))
     client.removeUserFromGroup(author_id, thread_id=thread_id)
+                   
+def kick_random(client, author_id, message_object, thread_id, thread_type):
+    gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
+    person_to_kick = message_object.text.split(' ')[1:]
+    persons_list = Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread])
+    num = random.randint(0, len(persons_list)-1) #random number within range
+    person = persons_list[num]
+    log.info("{} removed {} from {}".format(author_id, "random", thread_id))
+    client.removeUserFromGroup(person.uid, thread_id=thread_id)
+    return
+    log.info("Unable to remove: person not found.")
 
 def return_self(client, author_id, message_object, thread_id, thread_type):
 	print(message_object.text.split(' ',1)[1])
@@ -93,11 +119,14 @@ command_lib = {"all" : {"func" : tag_all},
                 "kick" : {"func" : kick}, 
                 "meet" : {"func" : hear_meet},
                 "laugh" : {"func" : laugh},
-               "sully" : {"func" : sully_comment},
-               "pranshu" : {"func" : pranshu_comment},
+                "randomp" : {"func": random_mention},
+                "randomi" : {"func": random_image},
+                "sully" : {"func" : sully_comment},
+                "pranshu" : {"func" : pranshu_comment},
                 "ap" : {"func" : ap_comment},
                 "aru" : {"func" : aru_comment},
                 "kanav" : {"func" : kanav_comment},
+               "kickr" : {"func" : kick_random},
                 "removeme" : {"func" : removeme},
                 "wiki" : {"func" : wiki},
                 "return": {"func": return_self},
