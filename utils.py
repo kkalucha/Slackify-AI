@@ -1,8 +1,11 @@
 import time
-from datetime import datetime
+from datetime import datetime, date
 from dateparser import parse
 import wikipedia
 from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType
+
+meeting_polls = {}
+CONSENSUS_THRESHOLD = 0.5
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
@@ -13,31 +16,57 @@ def tag_all(client, author_id, message_object, thread_id, thread_type):
     client.send(Message(text=message_text, mentions=mention_list), thread_id=thread_id, thread_type=thread_type)
 
 def hear_meet(client, author_id, message_object, thread_id, thread_type):
-    today = datetime.today()
+    today = date.today() + datetime.timedelta(days=1)
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
-    try:
-        date = parse("".join(message_object.text.split(' ')[1:]))
-    except ValueError: # date not found in string
-        client.send(Message(text='Oi you forgot the date dingus'), thread_id=thread_id, thread_type=thread_type)
-        return
+    date = parse(message_object.text.split(' ', 1)[1])
+    # parsing date failed
     if isinstance(date, type(None)):
-        client.send(Message(text='I can\'t read that.'), thread_id=thread_id, thread_type=thread_type)
+        client.send(Message(text='I can\'t read that date.'), thread_id=thread_id, thread_type=thread_type)
+        return
     if date < today:
         client.send(Message(text='I\'m not stupid that date has passed.'), thread_id=thread_id, thread_type=thread_type)
+        return
     time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
     meeting = Poll(title=f"Meeting on {datetime.strftime(date, '%A, %x')}. Who's in?", options=[PollOption(text=time) for time in time_options])
     client.createPoll(poll=meeting, thread_id=thread_id)
     client.tag_all(client, author_id, None, thread_id, thread_type)
+    meeting_polls[meeting] = {"date" : date}
+
+def handle_meeting_vote(client, author_id, poll, thread_id, thread_type):
+    global meeting_polls
+    global CONSENSUS_THRESHOLD
+    gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
+    
+    # update meeting_polls by checking today's date, and prune any that've passed
+    today = date.today() + datetime.timedelta(days=1)
+    for poll, properties in zip(meeting_polls):
+        if properties['date'] < today:
+            meeting_polls.pop(poll)
+    
+    # check poll for consensus, i.e majority of users. If so, send update and deactivate poll
+    n_users = float(len(Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread])))
+    check_consensus = lambda votes: (votes / n_users) >= CONSENSUS_THRESHOLD
+    consensus = [check_consensus(float(option.votes_count)) for option in client.fetchPollOptions(poll.uid)]
+    if any(consensus[:-1]): # meeting is happening
+        meeting_time = client.fetchPollOptions(poll.uid)[consensus.index(True)].text
+        meeting_date = datetime.strftime(meeting_polls[poll]['date'], '%A, %x')
+        client.send(Message(text=f'Consensus reached! Meeting at {meeting_time} on {meeting_date}'), thread_id=thread_id, thread_type=thread_type)
+        return
+    elif consensus[-1]: # meeting is not happening
+        client.send(Message(text=f'Consensus reached! Meeting at {meeting_time} isn\'t happening.'), thread_id=thread_id, thread_type=thread_type)
+        return
+    else:
+        log.info(f"No consensus on poll {poll.uid} yet.")
 
 def wiki(client, author_id, message_object, thread_id, thread_type):
     """Checks wikipedia for term."""
     try:
-        search_term = "".join(message_object.text.split(" ")[1:])
+        search_term = message_object.text.split(' ', 1)[1]
         search_result = Message(text=wikipedia.summary(search_term, sentences=2))
-    except wikipedia.exceptions.PageError:
+    except:
         client.send(Message(text='Invalid search term.'), thread_id=thread_id, thread_type=thread_type)
         return
-    except wikipedia.exceptions.WikipediaException:
+    if len(search_term) == 0:
         client.send(Message(text='You didn\'t give me anything to search dipshit.'), thread_id=thread_id, thread_type=thread_type)
         return
     client.send(search_result, thread_id=thread_id, thread_type=thread_type)
@@ -49,7 +78,7 @@ def laugh(client, author_id, message_object, thread_id, thread_type):
 
 def kick(client, author_id, message_object, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
-    person_to_kick = message_object.text.split(' ')[1:]
+    person_to_kick = message_object.text.split(' ', 1)[1]
     for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
         names = [person.first_name, person.last_name, person.nickname]
         if any([name in person_to_kick for name in names]):
@@ -94,3 +123,9 @@ def command_handler(client, author_id, message_object, thread_id, thread_type):
         command = command_lib.get(message_object.text.split(' ')[0][1:])
         if command is not None:
             command["func"](client, author_id, message_object, thread_id, thread_type)
+
+def vote_handler(client, author_id, poll, thread_id, thread_type):
+    """Routes actions after a poll is voted on."""
+    # poll was a meeting poll
+    if poll in list(meeting_polls.keys()):
+        handle_meeting_vote(client, author_id, poll, thread_id, thread_type)
