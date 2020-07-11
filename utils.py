@@ -133,6 +133,10 @@ def kanav_comment(client, author_id, message_object, thread_id, thread_type):
     """Kanav's special comment"""
     client.send(Message(text="If you commit to master I will kILL you"), thread_id=thread_id, thread_type=thread_type)
 
+def rishi_comment(client, author_id, message_object, thread_id, thread_type):
+    """Rishi's special comment"""
+    client.send(Message(text="yEa I gO tO gTeCh fOr ThE sKaTeBoArDiNg WeAtHer"), thread_id=thread_id, thread_type=thread_type)
+
 def removeme(client, author_id, message_object, thread_id, thread_type):
     """Removes the person who calls this from the chat"""
     print("{} will be removed from {}".format(author_id, thread_id))
@@ -197,6 +201,7 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "ap" : {"func" : ap_comment, "description" : "Apurv's special comment"},
                 "aru" : {"func" : aru_comment, "description" : "Arunav's special comment"},
                 "kanav" : {"func" : kanav_comment, "description" : "Kanav's special comment"},
+                "rishi" : {"func" : rishi_comment, "description" : "Rishi's special comment"},
                 "kickr" : {"func" : kick_random, "description" : "Kicks a random person from the chat"},
                 "removeme" : {"func" : removeme, "description" : "Removes the person who calls this from the chat"},
                 "wiki" : {"func" : wiki, "description" : "Checks wikipedia for term"},
