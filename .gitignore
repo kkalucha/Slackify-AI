@@ -35,6 +35,13 @@ MANIFEST
 *.manifest
 *.spec
 
+
+#Firebase Creds
+slackify-ai-firebase-adminsdk-k9uw1-3fa8b8a9d8.json
+
+#aws
+aws_ssh_key.pem
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
@@ -132,3 +139,6 @@ dmypy.json
 
 .empty/
 nohup.out
+
+.DS_Store
+
