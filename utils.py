@@ -160,25 +160,25 @@ def list_functions(client, author_id, message_object, thread_id, thread_type):
     message_string = "List of available functions:\n"
     for key in list(command_lib.keys()):
         if key != "help":
-            message_string += str(key) + " - " + command_lib[key]['func'].__doc__ + "\n"
+            message_string += str(key) + " - " + command_lib[key]['description'] + "\n"
     client.send(Message(text=message_string), thread_id=thread_id, thread_type=thread_type)
 
-command_lib = {"all" : {"func" : tag_all}, 
-                "kick" : {"func" : kick}, 
-                "meet" : {"func" : hear_meet},
-                "laugh" : {"func" : laugh},
-                "randomp" : {"func": random_mention},
-                "randomi" : {"func": random_image},
-                "sully" : {"func" : sully_comment},
-                "pranshu" : {"func" : pranshu_comment},
-                "ap" : {"func" : ap_comment},
-                "aru" : {"func" : aru_comment},
-                "kanav" : {"func" : kanav_comment},
-                "kickr" : {"func" : kick_random},
-                "removeme" : {"func" : removeme},
-                "wiki" : {"func" : wiki},
-                "return": {"func": return_self},
-                "help": {"func": list_functions}}
+command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
+                "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
+                "meet" : {"func" : hear_meet, "description" : "Creates poll to decide on time for given date"},
+                "laugh" : {"func" : laugh, "description" : "Laughs"},
+                "randomp" : {"func": random_mention, "description" : "Tags a random person"},
+                "randomi" : {"func": random_image, "description" : "Sends a random image to chat"},
+                "sully" : {"func" : sully_comment, "description" : "Sulaiman's special comment"},
+                "pranshu" : {"func" : pranshu_comment, "description" : "Pranshu's special comment"},
+                "ap" : {"func" : ap_comment, "description" : "Apurv's special comment"},
+                "aru" : {"func" : aru_comment, "description" : "Arunav's special comment"},
+                "kanav" : {"func" : kanav_comment, "description" : "Kanav's special comment"},
+                "kickr" : {"func" : kick_random, "description" : "Kicks a random person from the chat"},
+                "removeme" : {"func" : removeme, "description" : "Removes the person who calls this from the chat"},
+                "wiki" : {"func" : wiki, "description" : "Checks wikipedia for term"},
+                "return": {"func": return_self, "description" : "Echoes what you tell the bot to say"},
+                "help": {"func": list_functions, "description" : "Lists all available functions"}}
 
 
 
