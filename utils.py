@@ -180,7 +180,7 @@ def sentiment_react(client, author_id, message_object, thread_id, thread_type):
     if pol['pos'] > 0.6:
         client.reactToMessage(message_object.uid, MessageReaction.HEART)
     elif pol['neg'] > 0.6:
-        client.reactToMessage(message_object.uid, MessageReaction.ANGRY)
+        client.reactToMessage(message_object.uid, MessageReaction.SAD)
 
 command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
                 "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
