@@ -34,6 +34,15 @@ def random_mention(client, author_id, message_object, thread_id, thread_type):
     rand_mention = Mention(thread_id = chosen_person.uid, offset=0, length= len(person_name)+1)
     client.send(Message(text = "@" + person_name + " you have been chosen", mentions=[rand_mention]), thread_id=thread_id, thread_type=thread_type)
 
+def admin(client, author_id, message_object, thread_id, thread_type):
+    gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
+    person_to_admin = message_object.text.split(' ', 1)[1]
+    for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
+        if person_to_admin.lower() in person.name.lower():
+            log.info("{} added as admin {} from {}".format(author_id, person_to_admin, thread_id))
+            client.addGroupAdmins(person.uid, thread_id=thread_id)
+            return
+    log.info("Unable to add admin: person not found.")
 def random_image(client, author_id, message_object,thread_id,thread_type):
     """Sends a random image to chat"""
     client.sendRemoteImage("https://scontent-sjc3-1.xx.fbcdn.net/v/t1.0-9/31706596_988075581341800_8419953087938035712_o.jpg?_nc_cat=101&_nc_sid=e007fa&_nc_ohc=6WKPJKXT4yQAX8izxEX&_nc_ht=scontent-sjc3-1.xx&oh=dd30e0dc74cffd606248ef9151576fe2&oe=5F2E0EBC",message=Message(text='This should work'), thread_id=thread_id, thread_type=thread_type)
@@ -215,6 +224,8 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "return": {"func": return_self, "description" : "Echoes what you tell the bot to say"},
                 "pm" : {"func" : pm_person, "description" : "PMs the given person"}, 
                 "help": {"func": list_functions, "description" : "Lists all available functions"},
+                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}, 
+                "admin": {"func": admin, "description": "Makes someone admin"},
                 "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary"},
                 "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}}
 
