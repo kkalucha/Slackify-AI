@@ -180,6 +180,11 @@ def sentiment_react(client, author_id, message_object, thread_id, thread_type):
     elif pol['neg'] > 0.6:
         client.reactToMessage(message_object.uid, MessageReaction.SAD)
 
+def world_peace(client, author_id, message_object, thread_id, thread_type):
+    """Creates world peace"""
+    client.sendLocalImage("resources/worldpeace.gif", thread_id=thread_id, thread_type=thread_type)
+    
+
 command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
                 "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
                 "meet" : {"func" : hear_meet, "description" : "Creates poll to decide on time for given date"},
@@ -196,7 +201,8 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "wiki" : {"func" : wiki, "description" : "Checks wikipedia for term"},
                 "return": {"func": return_self, "description" : "Echoes what you tell the bot to say"},
                 "pm" : {"func" : pm_person, "description" : "PMs the given person"}, 
-                "help": {"func": list_functions, "description" : "Lists all available functions"}}
+                "help": {"func": list_functions, "description" : "Lists all available functions"},
+                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}}
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
