@@ -111,7 +111,19 @@ def pm_person(client, author_id, message_object, thread_id, thread_type):
         names = [person.first_name, person.last_name, person.nickname]
         if any([name in person_to_pm for name in names]):
             thread_id = person.uid
-    client.send(Message(text="hello bitch"), thread_id=thread_id, thread_type=ThreadType.USER)
+    client.send(Message(text="hello friend"), thread_id=thread_id, thread_type=ThreadType.USER)
+
+def return_self(client, author_id, message_object, thread_id, thread_type):
+	print(message_object.text.split(' ',1)[1])
+	client.send(Message(text=message_object.text.split(' ',1)[1]), thread_id=thread_id, thread_type=thread_type)
+
+def list_functions(client, author_id, message_object, thread_id, thread_type):
+	function_list = command_lib.keys()
+	message_string = "List of availible functions:\n"
+	for key in function_list:
+		if key != "help":
+			message_string += str(key) + "\n"
+	client.send(Message(text=message_string), thread_id=thread_id, thread_type=thread_type)
 
 command_lib = {"all" : {"func" : tag_all}, 
                 "kick" : {"func" : kick}, 
@@ -124,10 +136,12 @@ command_lib = {"all" : {"func" : tag_all},
                 "ap" : {"func" : ap_comment},
                 "aru" : {"func" : aru_comment},
                 "kanav" : {"func" : kanav_comment},
-               "kickr" : {"func" : kick_random},
+                "kickr" : {"func" : kick_random},
                 "removeme" : {"func" : removeme},
-               "pm" : {"func" : pm_person},
-                "wiki" : {"func" : wiki}}
+                "pm" : {"func" : pm_person},
+                "wiki" : {"func" : wiki},
+                "return": {"func": return_self},
+                "help": {"func": list_functions}}
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
