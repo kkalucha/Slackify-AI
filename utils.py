@@ -5,7 +5,12 @@ from dateparser import parse
 import wikipedia
 from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, ShareAttachment, MessageReaction
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
+<<<<<<< HEAD
 import pyrebase
+=======
+import requests
+from bs4 import BeautifulSoup
+>>>>>>> 3a15e966b281763b3ce0a97f88e634b446627594
 
 meeting_polls = {}
 CONSENSUS_THRESHOLD = 0.5
@@ -26,7 +31,7 @@ firebase = pyrebase.initialize_app(config)
 db = firebase.database()
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
-    """Tags everyone in the chat"""
+    """Tags everyone in tshe chat"""
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     mention_list = []
     message_text = '@all'
@@ -46,6 +51,15 @@ def random_mention(client, author_id, message_object, thread_id, thread_type):
     rand_mention = Mention(thread_id = chosen_person.uid, offset=0, length= len(person_name)+1)
     client.send(Message(text = "@" + person_name + " you have been chosen", mentions=[rand_mention]), thread_id=thread_id, thread_type=thread_type)
 
+def admin(client, author_id, message_object, thread_id, thread_type):
+    gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
+    person_to_admin = message_object.text.split(' ', 1)[1]
+    for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
+        if person_to_admin.lower() in person.name.lower():
+            log.info("{} added as admin {} from {}".format(author_id, person_to_admin, thread_id))
+            client.addGroupAdmins(person.uid, thread_id=thread_id)
+            return
+    log.info("Unable to add admin: person not found.")
 def random_image(client, author_id, message_object,thread_id,thread_type):
     """Sends a random image to chat"""
     client.sendRemoteImage("https://scontent-sjc3-1.xx.fbcdn.net/v/t1.0-9/31706596_988075581341800_8419953087938035712_o.jpg?_nc_cat=101&_nc_sid=e007fa&_nc_ohc=6WKPJKXT4yQAX8izxEX&_nc_ht=scontent-sjc3-1.xx&oh=dd30e0dc74cffd606248ef9151576fe2&oe=5F2E0EBC",message=Message(text='This should work'), thread_id=thread_id, thread_type=thread_type)
@@ -147,6 +161,10 @@ def kanav_comment(client, author_id, message_object, thread_id, thread_type):
     """Kanav's special comment"""
     client.send(Message(text="If you commit to master I will kILL you"), thread_id=thread_id, thread_type=thread_type)
 
+def rishi_comment(client, author_id, message_object, thread_id, thread_type):
+    """Rishi's special comment"""
+    client.send(Message(text="yEa I gO tO gTeCh fOr ThE sKaTeBoArDiNg WeAtHer"), thread_id=thread_id, thread_type=thread_type)
+
 def removeme(client, author_id, message_object, thread_id, thread_type):
     """Removes the person who calls this from the chat"""
     print("{} will be removed from {}".format(author_id, thread_id))
@@ -176,7 +194,6 @@ def pm_person(client, author_id, message_object, thread_id, thread_type):
 
 def return_self(client, author_id, message_object, thread_id, thread_type):
     """Echoes what you tell the bot to say"""
-    print(message_object.text.split(' ', 1)[1])
     client.send(Message(text=message_object.text.split(' ',1)[1]), thread_id=thread_id, thread_type=thread_type)
 
 def list_functions(client, author_id, message_object, thread_id, thread_type):
@@ -198,6 +215,7 @@ def world_peace(client, author_id, message_object, thread_id, thread_type):
     """Creates world peace"""
     kick_random(client, author_id, message_object, thread_id, thread_type)
     client.sendLocalImage("resources/worldpeace.gif", thread_id=thread_id, thread_type=thread_type)
+<<<<<<< HEAD
     if message_object.text == "!removeme" and thread_type == ThreadType.GROUP:
         log.info("{} will be removed from {}".format(author_id, thread_id))
         client.removeUserFromGroup(author_id, thread_id=thread_id)
@@ -238,6 +256,15 @@ def odds(client, author_id, message_object, thread_id, thread_type):
 #TODO: wipe message once bot leaves
 
 
+=======
+
+def urban_dict(client, author_id, message_object, thread_id, thread_type):
+    """Creates world peace"""
+    word = message_object.text.split(' ',1)[1]
+    r = requests.get("http://www.urbandictionary.com/define.php?term={}".format(word))
+    soup = BeautifulSoup(r.content)
+    client.send(Message(text=soup.find("div",attrs={"class":"meaning"}).text), thread_id=thread_id, thread_type=thread_type)
+>>>>>>> 3a15e966b281763b3ce0a97f88e634b446627594
 
 command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
                 "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
@@ -250,17 +277,25 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "ap" : {"func" : ap_comment, "description" : "Apurv's special comment"},
                 "aru" : {"func" : aru_comment, "description" : "Arunav's special comment"},
                 "kanav" : {"func" : kanav_comment, "description" : "Kanav's special comment"},
+                "rishi" : {"func" : rishi_comment, "description" : "Rishi's special comment"},
                 "kickr" : {"func" : kick_random, "description" : "Kicks a random person from the chat"},
                 "removeme" : {"func" : removeme, "description" : "Removes the person who calls this from the chat"},
                 "wiki" : {"func" : wiki, "description" : "Checks wikipedia for term"},
                 "return": {"func": return_self, "description" : "Echoes what you tell the bot to say"},
                 "pm" : {"func" : pm_person, "description" : "PMs the given person"}, 
                 "help": {"func": list_functions, "description" : "Lists all available functions"},
+<<<<<<< HEAD
                 "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}
                 "pin": {"func": pin, "description" : "FILL IN" },
                 "brief": {"func": brief, "description" : "FILL IN"}
                 "odds": {"func": odds, "description" : "FILL IN"}}
 
+=======
+                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}, 
+                "admin": {"func": admin, "description": "Makes someone admin"},
+                "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary"},
+                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}}
+>>>>>>> 3a15e966b281763b3ce0a97f88e634b446627594
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
