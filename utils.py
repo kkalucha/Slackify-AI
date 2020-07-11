@@ -5,11 +5,25 @@ from dateparser import parse
 import wikipedia
 from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, ShareAttachment, MessageReaction
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import pyrebase
 
 meeting_polls = {}
 CONSENSUS_THRESHOLD = 0.5
 time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
 
+#TODO: replace with .env variables
+#TODO: Create a user that is forever signed in 
+
+config = {
+    "apiKey": os.environ.get('APIKEY'),
+    "authDomain": os.environ.get('AUTHDOMAIN'),
+    "databaseURL": os.environ.get('DATABASEURL'),
+    "storageBucket": os.environ.get('STORAGEBUCKET')
+}
+
+firebase = pyrebase.initialize_app(config)
+
+db = firebase.database()
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
     """Tags everyone in the chat"""
@@ -184,7 +198,46 @@ def world_peace(client, author_id, message_object, thread_id, thread_type):
     """Creates world peace"""
     kick_random(client, author_id, message_object, thread_id, thread_type)
     client.sendLocalImage("resources/worldpeace.gif", thread_id=thread_id, thread_type=thread_type)
+    if message_object.text == "!removeme" and thread_type == ThreadType.GROUP:
+        log.info("{} will be removed from {}".format(author_id, thread_id))
+        client.removeUserFromGroup(author_id, thread_id=thread_id)
+
+def pin(client, author_id, message_object, thread_id, thread_type):
+    to_pin = message_object.text[message_object.text.find("n") + 1:]
+    exist_check = db.child("groups").child(thread_id).child("pin_id").get()
+    if exist_check is None:
+        db.child("groups").child(thread_id).set({"pin_id": to_pin})
+    else:
+        db.child("groups").child(thread_id).update({"pin_id": to_pin})
+
+
+
+def brief(client, author_id, message_object, thread_id, thread_type):
+    exist_check = db.child("groups").child(thread_id).child("pin_id").get().val()
+    if exist_check is None:
+        client.send(Message(text="You never pinned anything"), thread_id=thread_id, thread_type=thread_type)
+    else: 
+        client.send(Message(text=str(db.child("groups").child(thread_id).child("pin_id").get().val())), thread_id=thread_id, thread_type=thread_type)
+
+
+def odds(client, author_id, message_object, thread_id, thread_type):
+    #thread object
+    gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
+    persons_list = Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread])
     
+    participants = message_object.text.split(' ')[1:]
+    #size check 
+    if len(participants) != 2:
+        client.send(Message(text="Please enter 2 particpants in the group"), thread_id=thread_id, thread_type=thread_type)
+    
+    for x in participants:
+    person_to_kick = message_object.text.split(' ')[1:]
+   
+
+
+#TODO: wipe message once bot leaves
+
+
 
 command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
                 "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
@@ -203,7 +256,11 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "return": {"func": return_self, "description" : "Echoes what you tell the bot to say"},
                 "pm" : {"func" : pm_person, "description" : "PMs the given person"}, 
                 "help": {"func": list_functions, "description" : "Lists all available functions"},
-                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}}
+                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}
+                "pin": {"func": pin, "description" : "FILL IN" },
+                "brief": {"func": brief, "description" : "FILL IN"}
+                "odds": {"func": odds, "description" : "FILL IN"}}
+
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
