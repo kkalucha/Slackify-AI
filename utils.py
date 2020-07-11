@@ -88,10 +88,10 @@ def wiki(client, author_id, message_object, thread_id, thread_type):
     try:
         search_term = message_object.text.split(' ', 1)[1]
         search_result = Message(text=wikipedia.summary(search_term, sentences=2))
-    except:
+    except wikipedia.exceptions.WikipediaException:
         client.send(Message(text='Invalid search term.'), thread_id=thread_id, thread_type=thread_type)
         return
-    if len(search_term) == 0:
+    except IndexError:
         client.send(Message(text='You didn\'t give me anything to search dipshit.'), thread_id=thread_id, thread_type=thread_type)
         return
     client.send(search_result, thread_id=thread_id, thread_type=thread_type)
@@ -152,17 +152,16 @@ def kick_random(client, author_id, message_object, thread_id, thread_type):
 
 def return_self(client, author_id, message_object, thread_id, thread_type):
     """Echoes what you tell the bot to say"""
-	print(message_object.text.split(' ',1)[1])
-	client.send(Message(text=message_object.text.split(' ',1)[1]), thread_id=thread_id, thread_type=thread_type)
+    print(message_object.text.split(' ', 1)[1])
+    client.send(Message(text=message_object.text.split(' ',1)[1]), thread_id=thread_id, thread_type=thread_type)
 
 def list_functions(client, author_id, message_object, thread_id, thread_type):
     """Lists all available functions"""
-	function_list = command_lib.keys()
-	message_string = "List of availible functions:\n"
-	for key in function_list:
-		if key != "help":
-			message_string += f'{str(key)} - {command_lib[key]['func'].__doc__}\n'
-	client.send(Message(text=message_string), thread_id=thread_id, thread_type=thread_type)
+    message_string = "List of available functions:\n"
+    for key in list(command_lib.keys()):
+        if key != "help":
+            message_string += str(key) + " - " + command_lib[key]['func'].__doc__ + "\n"
+    client.send(Message(text=message_string), thread_id=thread_id, thread_type=thread_type)
 
 command_lib = {"all" : {"func" : tag_all}, 
                 "kick" : {"func" : kick}, 
