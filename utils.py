@@ -3,7 +3,8 @@ import random
 from datetime import datetime, date, timedelta
 from dateparser import parse
 import wikipedia
-from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, ShareAttachment
+from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, ShareAttachment, MessageReaction
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 meeting_polls = {}
 CONSENSUS_THRESHOLD = 0.5
@@ -173,6 +174,14 @@ def list_functions(client, author_id, message_object, thread_id, thread_type):
             message_string += str(key) + " - " + command_lib[key]['description'] + "\n"
     client.send(Message(text=message_string), thread_id=thread_id, thread_type=thread_type)
 
+def sentiment_react(client, author_id, message_object, thread_id, thread_type):
+    pol = SentimentIntensityAnalyzer().polarity_scores(message_object.text.split(" ", 1)[1])
+    
+    if pol['pos'] > 0.6:
+        client.reactToMessage(message_object.uid, MessageReaction.HEART)
+    elif pol['neg'] > 0.6:
+        client.reactToMessage(message_object.uid, MessageReaction.ANGRY)
+
 command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
                 "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
                 "meet" : {"func" : hear_meet, "description" : "Creates poll to decide on time for given date"},
@@ -196,6 +205,9 @@ def command_handler(client, author_id, message_object, thread_id, thread_type):
         command = command_lib.get(message_object.text.split(' ')[0][1:])
         if command is not None:
             command["func"](client, author_id, message_object, thread_id, thread_type)
+    else:
+        log.info("-------------CHECKING SENTIMENT----------------")
+        sentiment_react(client, author_id, message_object, thread_id, thread_type)
 
 def vote_handler(client, author_id, poll, thread_id, thread_type):
     """Routes actions after a poll is voted on."""
