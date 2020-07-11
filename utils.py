@@ -7,35 +7,14 @@ from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, 
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 import requests
 from bs4 import BeautifulSoup
-import firebase_admin
-from firebase_admin import credentials
-from firebase_admin import db
-import os 
-
 
 meeting_polls = {}
 CONSENSUS_THRESHOLD = 0.5
 time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
 
 
-
-# Fetch the service account key JSON file contents
-cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
-
-# Initialize the app with a custom auth variable, limiting the server's access
-firebase_admin.initialize_app(cred, {
-    'databaseURL': os.environ.get("DATABASEURL"),
-    'databaseAuthVariableOverride': {
-        'uid': os.environ.get("WORKERID")
-    }
-})
-
-
-# The app only has access as defined in the Security Rules
-groups_ref = db.reference('/groups')
-
 def tag_all(client, author_id, message_object, thread_id, thread_type):
-    """Tags everyone in the chat"""
+    """Tags everyone in tshe chat"""
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     mention_list = []
     message_text = '@all'
@@ -64,7 +43,6 @@ def admin(client, author_id, message_object, thread_id, thread_type):
             client.addGroupAdmins(person.uid, thread_id=thread_id)
             return
     log.info("Unable to add admin: person not found.")
-
 def random_image(client, author_id, message_object,thread_id,thread_type):
     """Sends a random image to chat"""
     client.sendRemoteImage("https://scontent-sjc3-1.xx.fbcdn.net/v/t1.0-9/31706596_988075581341800_8419953087938035712_o.jpg?_nc_cat=101&_nc_sid=e007fa&_nc_ohc=6WKPJKXT4yQAX8izxEX&_nc_ht=scontent-sjc3-1.xx&oh=dd30e0dc74cffd606248ef9151576fe2&oe=5F2E0EBC",message=Message(text='This should work'), thread_id=thread_id, thread_type=thread_type)
@@ -220,32 +198,6 @@ def world_peace(client, author_id, message_object, thread_id, thread_type):
     """Creates world peace"""
     kick_random(client, author_id, message_object, thread_id, thread_type)
     client.sendLocalImage("resources/worldpeace.gif", thread_id=thread_id, thread_type=thread_type)
-    if message_object.text == "!removeme" and thread_type == ThreadType.GROUP:
-        log.info("{} will be removed from {}".format(author_id, thread_id))
-        client.removeUserFromGroup(author_id, thread_id=thread_id)
-
-def pin(client, author_id, message_object, thread_id, thread_type):
-    if Client.fetchThreadInfo(client, thread_id)[thread_id].type == ThreadType.USER:
-        client.send(Message(text="Pin only works in Group chats!"), thread_id=thread_id, thread_type=thread_type)
-        return
-    
-    to_pin = message_object.text[message_object.text.find("n") + 1:]
-    exist_check = groups_ref.child(thread_id).child("pin_id").get()
-    if exist_check is None:
-        groups_ref.child(thread_id).set({"pin_id": to_pin})
-    else:
-        groups_ref.child(thread_id).update({"pin_id": to_pin})
-
-
-def brief(client, author_id, message_object, thread_id, thread_type):
-    if Client.fetchThreadInfo(client, thread_id)[thread_id].type == ThreadType.USER:
-        client.send(Message(text="Brief only works in Group Chats"), thread_id=thread_id, thread_type=thread_type)
-        return
-    exist_check = groups_ref.child(thread_id).child("pin_id").get()
-    if exist_check is None:
-        client.send(Message(text="You never pinned anything"), thread_id=thread_id, thread_type=thread_type)
-    else: 
-        client.send(Message(text=str(groups_ref.child(thread_id).child("pin_id").get())), thread_id=thread_id, thread_type=thread_type)
 
 def urban_dict(client, author_id, message_object, thread_id, thread_type):
     """Creates world peace"""
@@ -272,11 +224,10 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "return": {"func": return_self, "description" : "Echoes what you tell the bot to say"},
                 "pm" : {"func" : pm_person, "description" : "PMs the given person"}, 
                 "help": {"func": list_functions, "description" : "Lists all available functions"},
-                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"},
-                "pin": {"func": pin, "description" : "FILL IN" },
-                "brief": {"func": brief, "description" : "FILL IN"},
+                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}, 
                 "admin": {"func": admin, "description": "Makes someone admin"},
-                "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary"}}
+                "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary"},
+                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}}
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
@@ -316,16 +267,7 @@ def person_added_handler(client, added_ids, author_id, thread_id):
     pass
 
 def person_removed_handler(client, removed_id, author_id, thread_id):
-    gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
-    if removed_id == self.uid and gc_thread.type == ThreadType.GROUP:
-        try:
-            groups_ref.child(thread_id).delete()
-        except FirebaseError:
-            print("Not deleted properly")
-
-
-
-        #removes groups referece in the database to prevent wasted space
+    pass
 
 def fr_handler(client, from_id, msg):
     pass
