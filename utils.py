@@ -182,6 +182,7 @@ def sentiment_react(client, author_id, message_object, thread_id, thread_type):
 
 def world_peace(client, author_id, message_object, thread_id, thread_type):
     """Creates world peace"""
+    kick_random(client, author_id, message_object, thread_id, thread_type)
     client.sendLocalImage("resources/worldpeace.gif", thread_id=thread_id, thread_type=thread_type)
     
 
