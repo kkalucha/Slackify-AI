@@ -204,3 +204,30 @@ def new_poll_handler(client, author_id, poll, thread_id, thread_type):
     log.info("New poll created!")
     if poll.title.split(" ", 1)[0] == "Meeting" and poll.options_count == len(time_options):
         meeting_polls[poll.uid] = {'date': parse(poll.title.split(" ")[3])}
+
+def title_change_handler(client, author_id, new_title, thread_id, thread_type):
+    pass
+
+def image_change_handler(client, author_id, new_image, thread_id, thread_type):
+    pass
+
+def nickname_handler(client, author_id, changed_for, new_nickname, thread_id, thread_type):
+    pass
+
+def person_added_handler(client, added_ids, author_id, thread_id):
+    pass
+
+def person_removed_handler(client, removed_id, author_id, thread_id):
+    pass
+
+def fr_handler(client, from_id, msg):
+    pass
+
+def reaction_added_handler(client, reaction, author_id, thread_id, thread_type):
+    pass
+
+def reaction_removed_handler(client, author_id, thread_id, thread_type, ts, msg):
+    pass
+
+def timestamp_handler(client, buddylist, msg):
+    pass
