@@ -102,6 +102,16 @@ def kick_random(client, author_id, message_object, thread_id, thread_type):
     client.removeUserFromGroup(person.uid, thread_id=thread_id)
     return
     log.info("Unable to remove: person not found.")
+                   
+#the message goes to spam my default if you aren't friends with the bot
+def pm_person(client, author_id, message_object, thread_id, thread_type):
+    gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
+    person_to_pm = message_object.text.split(' ')[1:]
+    for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
+        names = [person.first_name, person.last_name, person.nickname]
+        if any([name in person_to_pm for name in names]):
+            thread_id = person.uid
+    client.send(Message(text="hello friend"), thread_id=thread_id, thread_type=ThreadType.USER)
 
 def return_self(client, author_id, message_object, thread_id, thread_type):
 	print(message_object.text.split(' ',1)[1])
@@ -128,11 +138,10 @@ command_lib = {"all" : {"func" : tag_all},
                 "kanav" : {"func" : kanav_comment},
                 "kickr" : {"func" : kick_random},
                 "removeme" : {"func" : removeme},
+                "pm" : {"func" : pm_person},
                 "wiki" : {"func" : wiki},
                 "return": {"func": return_self},
                 "help": {"func": list_functions}}
-
-
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
