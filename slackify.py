@@ -66,7 +66,7 @@ class SlackifyBot(Client):
         log.info("Friend request from {}".format(from_id))
         utils.fr_handler(self, from_id, msg)
     
-    def onReactionAdded(self, reaction, author_id, thread_id, thread_type, **kwargs):
+    def onReactionAdded(self, mid, reaction, author_id, thread_id, thread_type, **kwargs):
         log.info(
             "{} reacted to message {} with {} in {} ({})".format(
                 author_id, mid, reaction.name, thread_id, thread_type.name
@@ -74,7 +74,7 @@ class SlackifyBot(Client):
         )
         utils.reaction_added_handler(self, reaction, author_id, thread_id, thread_type)
     
-    def onReactionRemoved(self, author_id, thread_id, thread_type, ts, msg):
+    def onReactionRemoved(self, mid, author_id, thread_id, thread_type, ts, msg):
         log.info(
             "{} removed reaction from {} message in {} ({})".format(
                 author_id, mid, thread_id, thread_type
