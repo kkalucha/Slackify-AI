@@ -176,7 +176,6 @@ def list_functions(client, author_id, message_object, thread_id, thread_type):
 
 def sentiment_react(client, author_id, message_object, thread_id, thread_type):
     pol = SentimentIntensityAnalyzer().polarity_scores(message_object.text.split(" ", 1)[1])
-    
     if pol['pos'] > 0.6:
         client.reactToMessage(message_object.uid, MessageReaction.HEART)
     elif pol['neg'] > 0.6:
@@ -206,7 +205,6 @@ def command_handler(client, author_id, message_object, thread_id, thread_type):
         if command is not None:
             command["func"](client, author_id, message_object, thread_id, thread_type)
     else:
-        log.info("-------------CHECKING SENTIMENT----------------")
         sentiment_react(client, author_id, message_object, thread_id, thread_type)
 
 def vote_handler(client, author_id, poll, thread_id, thread_type):
