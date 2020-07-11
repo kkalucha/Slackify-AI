@@ -106,8 +106,8 @@ def kick(client, author_id, message_object, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     person_to_kick = message_object.text.split(' ', 1)[1]
     for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
-        names = [person.first_name, person.last_name, person.nickname]
-        if any([name in person_to_kick for name in names]):
+        names = [person.first_name.lower(), person.last_name.lower(), person.nickname.lower().replace, person.name.lower().replace('@','')]
+        if any([name in person_to_kick.lower for name in names]):
             log.info("{} removed {} from {}".format(author_id, person_to_kick, thread_id))
             client.removeUserFromGroup(person.uid, thread_id=thread_id)
             return
