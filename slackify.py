@@ -27,12 +27,14 @@ class SlackifyBot(Client):
                     utils.command_handler(self, author_id, message_object, thread_id, thread_type)
     
     def onPollVoted(self, author_id, poll, thread_id, thread_type, **kwargs):
-        self.markAsDelivered(thread_id, message_object.uid)
-        self.markAsRead(thread_id)
-        
         log.info("{} voted in poll {} in {} ({})".format(author_id, poll, thread_id, thread_type.name))
         
         utils.vote_handler(self, author_id, poll, thread_id, thread_type)
+    
+    def onPollCreated(self, author_id, poll, thread_id, thread_type, **kwargs):
+        log.info("{} created poll {} in {} ({})".format(author_id, poll, thread_id, thread_type.name))
+        
+        utils.new_poll_handler(self, author_id, poll, thread_id, thread_type)
 
 client = SlackifyBot(str(username), str(password))
 client.listen()

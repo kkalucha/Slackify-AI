@@ -7,6 +7,8 @@ from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, 
 
 meeting_polls = {}
 CONSENSUS_THRESHOLD = 0.5
+time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
+
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
@@ -31,12 +33,15 @@ def random_image(client, author_id, message_object,thread_id,thread_type):
     client.sendRemoteImage("https://scontent-sjc3-1.xx.fbcdn.net/v/t1.0-9/31706596_988075581341800_8419953087938035712_o.jpg?_nc_cat=101&_nc_sid=e007fa&_nc_ohc=6WKPJKXT4yQAX8izxEX&_nc_ht=scontent-sjc3-1.xx&oh=dd30e0dc74cffd606248ef9151576fe2&oe=5F2E0EBC",message=Message(text='This should work'), thread_id=thread_id, thread_type=thread_type)
     
 def hear_meet(client, author_id, message_object, thread_id, thread_type):
-    today = date.today() + timedelta(days=1)
+    global meeting_polls
+    global time_options
+    
+    today = date.today()
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     try:
-        date = parse(message_object.text.split(' ', 1)[1])
-        assert(not isinstance(date, type(None)))
-        if date < today:
+        msg_date = parse(message_object.text.split(' ', 1)[1])
+        assert(not isinstance(msg_date, type(None)))
+        if msg_date.date() < today:
             raise ValueError
     except (IndexError, AssertionError) as e:
         client.send(Message(text='I can\'t read that date.'), thread_id=thread_id, thread_type=thread_type)
@@ -44,11 +49,9 @@ def hear_meet(client, author_id, message_object, thread_id, thread_type):
     except ValueError:
         client.send(Message(text='I\'m not stupid that date has passed.'), thread_id=thread_id, thread_type=thread_type)
         return
-    time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
-    meeting = Poll(title=f"Meeting on {datetime.strftime(date, '%A, %x')}. Who's in?", options=[PollOption(text=time) for time in time_options])
+    meeting = Poll(title=f"Meeting on {datetime.strftime(msg_date, '%A, %x')}. Who's in?", options=[PollOption(text=time) for time in time_options])
     client.createPoll(poll=meeting, thread_id=thread_id)
-    client.tag_all(client, author_id, None, thread_id, thread_type)
-    meeting_polls[meeting] = {"date" : date}
+    tag_all(client, author_id, None, thread_id, thread_type)
 
 def handle_meeting_vote(client, author_id, poll, thread_id, thread_type):
     global meeting_polls
@@ -56,10 +59,10 @@ def handle_meeting_vote(client, author_id, poll, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     
     # update meeting_polls by checking today's date, and prune any that've passed
-    today = date.today() + timedelta(days=1)
-    for poll, properties in zip(meeting_polls):
-        if properties['date'] < today:
-            meeting_polls.pop(poll)
+    today = date.today()
+    for poll_uid in list(meeting_polls.keys()):
+        if meeting_polls[poll_uid]['date'].date() < today:
+            meeting_polls.pop(poll_uid)
     
     # check poll for consensus, i.e majority of users. If so, send update and deactivate poll
     n_users = float(len(Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread])))
@@ -67,7 +70,7 @@ def handle_meeting_vote(client, author_id, poll, thread_id, thread_type):
     consensus = [check_consensus(float(option.votes_count)) for option in client.fetchPollOptions(poll.uid)]
     if any(consensus[:-1]): # meeting is happening
         meeting_time = client.fetchPollOptions(poll.uid)[consensus.index(True)].text
-        meeting_date = datetime.strftime(meeting_polls[poll]['date'], '%A, %x')
+        meeting_date = datetime.strftime(meeting_polls[poll.uid]['date'], '%A, %x')
         client.send(Message(text=f'Consensus reached! Meeting at {meeting_time} on {meeting_date}'), thread_id=thread_id, thread_type=thread_type)
         return
     elif consensus[-1]: # meeting is not happening
@@ -174,6 +177,17 @@ def command_handler(client, author_id, message_object, thread_id, thread_type):
 
 def vote_handler(client, author_id, poll, thread_id, thread_type):
     """Routes actions after a poll is voted on."""
-    # poll was a meeting poll
-    if poll in list(meeting_polls.keys()):
+    global meeting_polls
+    
+    # poll is a meeting poll
+    if poll.uid in list(meeting_polls.keys()):
         handle_meeting_vote(client, author_id, poll, thread_id, thread_type)
+
+def new_poll_handler(client, author_id, poll, thread_id, thread_type):
+    """Routes actions after a poll is created."""
+    global meeting_polls
+    global time_options
+    
+    log.info("New poll created!")
+    if poll.title.split(" ", 1)[0] == "Meeting" and poll.options_count == len(time_options):
+        meeting_polls[poll.uid] = {'date': parse(poll.title.split(" ")[3])}
