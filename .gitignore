@@ -132,3 +132,6 @@ dmypy.json
 
 .empty/
 nohup.out
+aws_ssh_key.pem
+slackify-ai-firebase-adminsdk-k9uw1-3fa8b8a9d8.json
+
