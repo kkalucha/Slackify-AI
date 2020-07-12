@@ -22,9 +22,8 @@ def github_payload():
             payload = request.get_json()
             if payload['commits'][0]['distinct'] == True and payload["ref"] == "refs/heads/master":
                 try:
-                    venv_output = subprocess.check_output(['source', 'venv/bin/activate'],) 
                     cmd_output = subprocess.check_output(
-                        ['git', 'pull', 'origin', 'master'],)
+                        ['git', 'pull'],)
                     pip_output = subprocess.check_output(['pip3', 'install', '-r', 'requirements.txt'],)
                     return jsonify({'msg': str("pull success and requirements downloaded")})
                 except subprocess.CalledProcessError as error:
