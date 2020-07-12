@@ -25,7 +25,7 @@ def github_payload():
                     venv_output = subprocess.check_output(['source', 'venv/bin/activate'],) 
                     cmd_output = subprocess.check_output(
                         ['git', 'pull', 'origin', 'master'],)
-                    pip_output = subprocess.check_output(['pip', 'install', '-r', 'requirements.txt'],)
+                    pip_output = subprocess.check_output(['pip3', 'install', '-r', 'requirements.txt'],)
                     return jsonify({'msg': str("pull success and requirements downloaded")})
                 except subprocess.CalledProcessError as error:
                     return jsonify({'msg': str(error.output)})
