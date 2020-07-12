@@ -1,4 +1,3 @@
-
 from flask import Flask, request, render_template, redirect, jsonify, url_for
 import hmac
 import hashlib
