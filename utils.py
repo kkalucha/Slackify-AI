@@ -5,10 +5,17 @@ from dateparser import parse
 import wikipedia
 from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, ShareAttachment, MessageReaction
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
-
+import json
+import requests
+import urllib
+import os
+from urllib.error import HTTPError
+from urllib.parse import quote
+from urllib.parse import urlencode
 meeting_polls = {}
 CONSENSUS_THRESHOLD = 0.5
 time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
+API_KEY = os.environ.get("YELP_API_KEY")
 
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
@@ -66,7 +73,55 @@ def hear_meet(client, author_id, message_object, thread_id, thread_type):
     meeting = Poll(title=f"Meeting on {datetime.strftime(msg_date, '%A, %x')}. Who's in?", options=[PollOption(text=time) for time in time_options])
     client.createPoll(poll=meeting, thread_id=thread_id)
     tag_all(client, author_id, None, thread_id, thread_type)
-
+def yelp_search(client, author_id, message_object, thread_id, thread_type):
+    inputs_array = message_object.text.split(' ', 1)[1].split("in", 1)
+    food = inputs_array[0]
+    location = inputs_array[1]
+    def request(host, path, api_key, url_params=None):
+        """Given your API_KEY, send a GET request to the API.
+        Args:
+        host (str): The domain host of the API.
+        path (str): The path of the API after the domain.
+        API_KEY (str): Your API Key.
+        url_params (dict): An optional set of query parameters in the request.
+        Returns:
+        dict: The JSON response from the request.
+        Raises:
+        HTTPError: An error occurs from the HTTP request.
+        """
+        url_params = url_params or {}
+        url = '{0}{1}'.format(host, quote(path.encode('utf8')))
+        headers = {
+        'Authorization': 'Bearer %s' % api_key,}
+        print(u'Querying {0} ...'.format(url))
+        response = requests.request('GET', url, headers=headers, params=url_params)
+        return response.json()
+    SEARCH_LIMIT = 5
+    API_HOST = 'https://api.yelp.com'
+    SEARCH_PATH = '/v3/businesses/search'
+    BUSINESS_PATH = '/v3/businesses/' 
+    url_params = {
+        'term': food.replace(' ', '+'),
+        'location': location.replace(' ', '+'),
+        'limit': SEARCH_LIMIT
+    }
+    def result_parser(result): 
+        whole_text = ""
+        for business in result["businesses"]:
+            attributes = ["name", "location","price","rating"]
+            for name in attributes: 
+                if name in business:
+                    if (name == "location"):
+                        if "display_address" in business["location"] and len(business["location"]["display_address"]) != 0:
+                            whole_text += name.capitalize() + ": " + " ".join(business["location"]["display_address"]) + "\n"
+                    else:
+                        whole_text += name.capitalize() + ": " + str(business[name]) + "\n"
+            whole_text += "\n\n"
+        return whole_text
+    result_dict = request(API_HOST, SEARCH_PATH, API_KEY, url_params=url_params)
+    returnString = json.dumps(result_dict)
+    returnText = result_parser(result_dict)
+    client.send(Message(text= returnText),thread_id=thread_id, thread_type=thread_type)
 def handle_meeting_vote(client, author_id, poll, thread_id, thread_type):
     global meeting_polls
     global CONSENSUS_THRESHOLD
@@ -154,7 +209,6 @@ def removeme(client, author_id, message_object, thread_id, thread_type):
 def kick_random(client, author_id, message_object, thread_id, thread_type):
     """Kicks a random person from the chat"""
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
-    person_to_kick = message_object.text.split(' ')[1:]
     persons_list = Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread])
     num = random.randint(0, len(persons_list)-1) #random number within range
     person = persons_list[num]
@@ -218,7 +272,8 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "pm" : {"func" : pm_person, "description" : "PMs the given person"}, 
                 "help": {"func": list_functions, "description" : "Lists all available functions"},
                 "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}, 
-                "admin": {"func": admin, "description": "Makes someone admin"}} 
+                "admin": {"func": admin, "description": "Makes someone admin"},
+                "food": {"func":yelp_search, "description": "Finds food based on location and food"}} 
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
