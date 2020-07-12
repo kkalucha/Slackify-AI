@@ -7,3 +7,5 @@ Slackify AI is a Facebook Messenger bot designed to bring the best features of S
 2. `cd Slackify-AI`
 3. run `./setup.sh`
 4. Enter Slackifyusername and password when prompted
+
+Added - Auto Deploy
