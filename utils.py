@@ -5,7 +5,6 @@ from dateparser import parse
 import wikipedia
 from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, ShareAttachment, MessageReaction
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
-<<<<<<< HEAD
 import json
 import requests
 import urllib
@@ -13,11 +12,9 @@ import os
 from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.parse import urlencode
-=======
 import requests
 from bs4 import BeautifulSoup
 
->>>>>>> 088f26a0b11cfbc04164ec9650c2dbe1734f5edb
 meeting_polls = {}
 CONSENSUS_THRESHOLD = 0.5
 time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
@@ -81,7 +78,7 @@ def hear_meet(client, author_id, message_object, thread_id, thread_type):
     tag_all(client, author_id, None, thread_id, thread_type)
 def yelp_search(client, author_id, message_object, thread_id, thread_type):
     inputs_array = message_object.text.split(' ', 1)[1].split("in", 1)
-    food = inputs_array[0]
+    keyword = inputs_array[0]
     location = inputs_array[1]
     def request(host, path, api_key, url_params=None):
         """Given your API_KEY, send a GET request to the API.
@@ -107,7 +104,7 @@ def yelp_search(client, author_id, message_object, thread_id, thread_type):
     SEARCH_PATH = '/v3/businesses/search'
     BUSINESS_PATH = '/v3/businesses/' 
     url_params = {
-        'term': food.replace(' ', '+'),
+        'term': keyword.replace(' ', '+'),
         'location': location.replace(' ', '+'),
         'limit': SEARCH_LIMIT
     }
@@ -282,14 +279,10 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "return": {"func": return_self, "description" : "Echoes what you tell the bot to say"},
                 "pm" : {"func" : pm_person, "description" : "PMs the given person"}, 
                 "help": {"func": list_functions, "description" : "Lists all available functions"},
-                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}, 
                 "admin": {"func": admin, "description": "Makes someone admin"},
-<<<<<<< HEAD
-                "food": {"func":yelp_search, "description": "Finds food based on location and food"}} 
-=======
+                "find": {"func":yelp_search, "description": "Finds stores based on location and keyword"}, 
                 "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary"},
                 "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}}
->>>>>>> 088f26a0b11cfbc04164ec9650c2dbe1734f5edb
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
