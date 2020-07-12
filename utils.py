@@ -206,6 +206,9 @@ def urban_dict(client, author_id, message_object, thread_id, thread_type):
     soup = BeautifulSoup(r.content)
     client.send(Message(text=soup.find("div",attrs={"class":"meaning"}).text), thread_id=thread_id, thread_type=thread_type)
 
+def check_status(client, author_id, message_object, thread_id, thread_type):
+    client.send(Message(text="bot is live at {}".format(datetime.now())), thread_id=thread_id, thread_type=thread_type)
+
 command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
                 "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
                 "meet" : {"func" : hear_meet, "description" : "Creates poll to decide on time for given date"},
@@ -227,7 +230,8 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}, 
                 "admin": {"func": admin, "description": "Makes someone admin"},
                 "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary"},
-                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}}
+                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"},
+                "status" : {"func" : check_status, "description" : "Returns the bot's status"}}
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
