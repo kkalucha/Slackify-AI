@@ -5,6 +5,7 @@ from dateparser import parse
 import wikipedia
 from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, ShareAttachment, MessageReaction
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
+<<<<<<< HEAD
 import json
 import requests
 import urllib
@@ -12,6 +13,11 @@ import os
 from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.parse import urlencode
+=======
+import requests
+from bs4 import BeautifulSoup
+
+>>>>>>> 088f26a0b11cfbc04164ec9650c2dbe1734f5edb
 meeting_polls = {}
 CONSENSUS_THRESHOLD = 0.5
 time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
@@ -19,7 +25,7 @@ API_KEY = os.environ.get("YELP_API_KEY")
 
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
-    """Tags everyone in the chat"""
+    """Tags everyone in tshe chat"""
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     mention_list = []
     message_text = '@all'
@@ -229,7 +235,6 @@ def pm_person(client, author_id, message_object, thread_id, thread_type):
 
 def return_self(client, author_id, message_object, thread_id, thread_type):
     """Echoes what you tell the bot to say"""
-    print(message_object.text.split(' ', 1)[1])
     client.send(Message(text=message_object.text.split(' ',1)[1]), thread_id=thread_id, thread_type=thread_type)
 
 def list_functions(client, author_id, message_object, thread_id, thread_type):
@@ -251,7 +256,13 @@ def world_peace(client, author_id, message_object, thread_id, thread_type):
     """Creates world peace"""
     kick_random(client, author_id, message_object, thread_id, thread_type)
     client.sendLocalImage("resources/worldpeace.gif", thread_id=thread_id, thread_type=thread_type)
-    
+
+def urban_dict(client, author_id, message_object, thread_id, thread_type):
+    """Creates world peace"""
+    word = message_object.text.split(' ',1)[1]
+    r = requests.get("http://www.urbandictionary.com/define.php?term={}".format(word))
+    soup = BeautifulSoup(r.content)
+    client.send(Message(text=soup.find("div",attrs={"class":"meaning"}).text), thread_id=thread_id, thread_type=thread_type)
 
 command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
                 "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
@@ -273,7 +284,12 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "help": {"func": list_functions, "description" : "Lists all available functions"},
                 "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}, 
                 "admin": {"func": admin, "description": "Makes someone admin"},
+<<<<<<< HEAD
                 "food": {"func":yelp_search, "description": "Finds food based on location and food"}} 
+=======
+                "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary"},
+                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}}
+>>>>>>> 088f26a0b11cfbc04164ec9650c2dbe1734f5edb
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
