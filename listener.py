@@ -23,7 +23,7 @@ def github_payload():
             if payload['commits'][0]['distinct'] == True and payload["ref"] == "refs/heads/master":
                 try:
                     cmd_output = subprocess.check_output(
-                        ['git', 'pull'],)
+                        ['git', 'pull', 'origin', 'master'],)
                     pip_output = subprocess.check_output(['pip3', 'install', '-r', 'requirements.txt'],)
                     return jsonify({'msg': str("pull success and requirements downloaded")})
                 except subprocess.CalledProcessError as error:
