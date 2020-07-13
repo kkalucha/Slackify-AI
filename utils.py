@@ -7,6 +7,8 @@ from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, 
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 import requests
 from bs4 import BeautifulSoup
+from fuzzywuzzy import process, fuzz
+
 
 meeting_polls = {}
 CONSENSUS_THRESHOLD = 0.5
@@ -209,6 +211,10 @@ def urban_dict(client, author_id, message_object, thread_id, thread_type):
 def check_status(client, author_id, message_object, thread_id, thread_type):
     client.send(Message(text="bot is live at {}".format(datetime.now())), thread_id=thread_id, thread_type=thread_type)
 
+# returns the most probable command if the command was not immediately in the command_lib
+def didyoumean(input_command):
+    return process.extract(input_command ,command_lib.keys(), scorer = fuzz.partial_ratio, limit = 1)[0][0]
+
 command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
                 "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
                 "meet" : {"func" : hear_meet, "description" : "Creates poll to decide on time for given date"},
@@ -238,8 +244,11 @@ def command_handler(client, author_id, message_object, thread_id, thread_type):
         command = command_lib.get(message_object.text.split(' ')[0][1:])
         if command is not None:
             command["func"](client, author_id, message_object, thread_id, thread_type)
-    else:
-        sentiment_react(client, author_id, message_object, thread_id, thread_type)
+        else:
+            sentiment_react(client, author_id, message_object, thread_id, thread_type)	
+            client.send(Message(text="That command doesnt exist. Did you mean !" + str(didyoumean(message_object.text.split(' ')[0][1:]))), thread_id=thread_id, thread_type=thread_type)
+
+        
 
 def vote_handler(client, author_id, poll, thread_id, thread_type):
     """Routes actions after a poll is voted on."""
