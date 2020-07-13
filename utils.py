@@ -245,6 +245,7 @@ def command_handler(client, author_id, message_object, thread_id, thread_type):
         if command is not None:
             command["func"](client, author_id, message_object, thread_id, thread_type)
         else:
+            sentiment_react(client, author_id, message_object, thread_id, thread_type)	
             client.send(Message(text="That command doesnt exist. Did you mean !" + str(didyoumean(message_object.text.split(' ')[0][1:]))), thread_id=thread_id, thread_type=thread_type)
 
         
