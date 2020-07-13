@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup
 meeting_polls = {}
 CONSENSUS_THRESHOLD = 0.5
 time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
-API_KEY = os.environ.get("YELP_API_KEY")
+YELP_API_KEY = os.environ.get("YELP_API_KEY")
 
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
@@ -121,7 +121,7 @@ def yelp_search(client, author_id, message_object, thread_id, thread_type):
                         whole_text += name.capitalize() + ": " + str(business[name]) + "\n"
             whole_text += "\n\n"
         return whole_text
-    result_dict = request(API_HOST, SEARCH_PATH, API_KEY, url_params=url_params)
+    result_dict = request(API_HOST, SEARCH_PATH, YELP_API_KEY, url_params=url_params)
     returnString = json.dumps(result_dict)
     returnText = result_parser(result_dict)
     client.send(Message(text= returnText),thread_id=thread_id, thread_type=thread_type)
