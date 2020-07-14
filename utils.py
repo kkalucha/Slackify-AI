@@ -15,6 +15,7 @@ from urllib.parse import urlencode
 import requests
 from bs4 import BeautifulSoup
 from fuzzywuzzy import process, fuzz
+import numpy as np
 
 
 meeting_polls = {}
@@ -245,11 +246,23 @@ def list_functions(client, author_id, message_object, thread_id, thread_type):
     client.send(Message(text=message_string), thread_id=thread_id, thread_type=thread_type)
 
 def sentiment_react(client, author_id, message_object, thread_id, thread_type):
-    pol = SentimentIntensityAnalyzer().polarity_scores(message_object.text.split(" ", 1)[1])
-    if pol['pos'] > 0.6:
-        client.reactToMessage(message_object.uid, MessageReaction.HEART)
-    elif pol['neg'] > 0.6:
-        client.reactToMessage(message_object.uid, MessageReaction.SAD)
+    pol = SentimentIntensityAnalyzer().polarity_scores(message_object.text)
+    compound = pol['compound']
+    pol = list(pol.values())[:-1]
+    emotions = {(0, 0, 1) : MessageReaction.HEART,
+                (1, 0, 0) : MessageReaction.SAD,
+                (0.707, 0, 0.707) : MessageReaction.SMILE,
+                (0, 0.707, 0.707) : MessageReaction.WOW,
+                (0.707, 0.707, 0) : MessageReaction.ANGRY}
+    similarity = {np.dot(pol, i)/(np.linalg.norm(pol)*np.linalg.norm(i)) : emotions[i] for i in emotions.keys()}
+    # if emotion vector is +/- ~26 degrees from an emotion, send that reaction
+    if sorted(list(similarity.keys()), reverse=True)[0] > 0.9:
+        client.reactToMessage(message_object.uid, similarity[sorted(list(similarity.keys()), reverse=True)[0]])
+    else:
+        if compound > 0.7:
+            client.reactToMessage(message_object.uid, MessageReaction.HEART)
+        elif compound < -0.7:
+            client.reactToMessage(message_object.uid, MessageReaction.SAD)
 
 def world_peace(client, author_id, message_object, thread_id, thread_type):
     """Creates world peace"""
@@ -301,7 +314,8 @@ def command_handler(client, author_id, message_object, thread_id, thread_type):
             command["func"](client, author_id, message_object, thread_id, thread_type)
         else:
             client.send(Message(text="That command doesnt exist. Did you mean !" + str(didyoumean(message_object.text.split(' ')[0][1:]))), thread_id=thread_id, thread_type=thread_type)
-            sentiment_react(client, author_id, message_object, thread_id, thread_type)	
+    else:
+        sentiment_react(client, author_id, message_object, thread_id, thread_type)	
 
         
 
