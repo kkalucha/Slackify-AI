@@ -5,14 +5,26 @@ from dateparser import parse
 import wikipedia
 from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, ShareAttachment, MessageReaction
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import json
+import requests
+import urllib
+import os
+from urllib.error import HTTPError
+from urllib.parse import quote
+from urllib.parse import urlencode
+import requests
+from bs4 import BeautifulSoup
+from fuzzywuzzy import process, fuzz
+
 
 meeting_polls = {}
 CONSENSUS_THRESHOLD = 0.5
 time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
+YELP_API_KEY = os.environ.get("YELP_API_KEY")
 
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
-    """Tags everyone in the chat"""
+    """Tags everyone in tshe chat"""
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     mention_list = []
     message_text = '@all'
@@ -32,6 +44,15 @@ def random_mention(client, author_id, message_object, thread_id, thread_type):
     rand_mention = Mention(thread_id = chosen_person.uid, offset=0, length= len(person_name)+1)
     client.send(Message(text = "@" + person_name + " you have been chosen", mentions=[rand_mention]), thread_id=thread_id, thread_type=thread_type)
 
+def admin(client, author_id, message_object, thread_id, thread_type):
+    gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
+    person_to_admin = message_object.text.split(' ', 1)[1]
+    for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
+        if person_to_admin.lower() in person.name.lower():
+            log.info("{} added as admin {} from {}".format(author_id, person_to_admin, thread_id))
+            client.addGroupAdmins(person.uid, thread_id=thread_id)
+            return
+    log.info("Unable to add admin: person not found.")
 def random_image(client, author_id, message_object,thread_id,thread_type):
     """Sends a random image to chat"""
     client.sendRemoteImage("https://scontent-sjc3-1.xx.fbcdn.net/v/t1.0-9/31706596_988075581341800_8419953087938035712_o.jpg?_nc_cat=101&_nc_sid=e007fa&_nc_ohc=6WKPJKXT4yQAX8izxEX&_nc_ht=scontent-sjc3-1.xx&oh=dd30e0dc74cffd606248ef9151576fe2&oe=5F2E0EBC",message=Message(text='This should work'), thread_id=thread_id, thread_type=thread_type)
@@ -57,7 +78,55 @@ def hear_meet(client, author_id, message_object, thread_id, thread_type):
     meeting = Poll(title=f"Meeting on {datetime.strftime(msg_date, '%A, %x')}. Who's in?", options=[PollOption(text=time) for time in time_options])
     client.createPoll(poll=meeting, thread_id=thread_id)
     tag_all(client, author_id, None, thread_id, thread_type)
-
+def yelp_search(client, author_id, message_object, thread_id, thread_type):
+    inputs_array = message_object.text.split(' ', 1)[1].split("in", 1)
+    keyword = inputs_array[0]
+    location = inputs_array[1]
+    def request(host, path, api_key, url_params=None):
+        """Given your API_KEY, send a GET request to the API.
+        Args:
+        host (str): The domain host of the API.
+        path (str): The path of the API after the domain.
+        API_KEY (str): Your API Key.
+        url_params (dict): An optional set of query parameters in the request.
+        Returns:
+        dict: The JSON response from the request.
+        Raises:
+        HTTPError: An error occurs from the HTTP request.
+        """
+        url_params = url_params or {}
+        url = '{0}{1}'.format(host, quote(path.encode('utf8')))
+        headers = {
+        'Authorization': 'Bearer %s' % api_key,}
+        print(u'Querying {0} ...'.format(url))
+        response = requests.request('GET', url, headers=headers, params=url_params)
+        return response.json()
+    SEARCH_LIMIT = 5
+    API_HOST = 'https://api.yelp.com'
+    SEARCH_PATH = '/v3/businesses/search'
+    BUSINESS_PATH = '/v3/businesses/' 
+    url_params = {
+        'term': keyword.replace(' ', '+'),
+        'location': location.replace(' ', '+'),
+        'limit': SEARCH_LIMIT
+    }
+    def result_parser(result): 
+        whole_text = ""
+        for business in result["businesses"]:
+            attributes = ["name", "location","price","rating"]
+            for name in attributes: 
+                if name in business:
+                    if (name == "location"):
+                        if "display_address" in business["location"] and len(business["location"]["display_address"]) != 0:
+                            whole_text += name.capitalize() + ": " + " ".join(business["location"]["display_address"]) + "\n"
+                    else:
+                        whole_text += name.capitalize() + ": " + str(business[name]) + "\n"
+            whole_text += "\n\n"
+        return whole_text
+    result_dict = request(API_HOST, SEARCH_PATH, YELP_API_KEY, url_params=url_params)
+    returnString = json.dumps(result_dict)
+    returnText = result_parser(result_dict)
+    client.send(Message(text= returnText),thread_id=thread_id, thread_type=thread_type)
 def handle_meeting_vote(client, author_id, poll, thread_id, thread_type):
     global meeting_polls
     global CONSENSUS_THRESHOLD
@@ -133,6 +202,10 @@ def kanav_comment(client, author_id, message_object, thread_id, thread_type):
     """Kanav's special comment"""
     client.send(Message(text="If you commit to master I will kILL you"), thread_id=thread_id, thread_type=thread_type)
 
+def rishi_comment(client, author_id, message_object, thread_id, thread_type):
+    """Rishi's special comment"""
+    client.send(Message(text="yEa I gO tO gTeCh fOr ThE sKaTeBoArDiNg WeAtHer"), thread_id=thread_id, thread_type=thread_type)
+
 def removeme(client, author_id, message_object, thread_id, thread_type):
     """Removes the person who calls this from the chat"""
     print("{} will be removed from {}".format(author_id, thread_id))
@@ -141,7 +214,6 @@ def removeme(client, author_id, message_object, thread_id, thread_type):
 def kick_random(client, author_id, message_object, thread_id, thread_type):
     """Kicks a random person from the chat"""
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
-    person_to_kick = message_object.text.split(' ')[1:]
     persons_list = Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread])
     num = random.randint(0, len(persons_list)-1) #random number within range
     person = persons_list[num]
@@ -162,7 +234,6 @@ def pm_person(client, author_id, message_object, thread_id, thread_type):
 
 def return_self(client, author_id, message_object, thread_id, thread_type):
     """Echoes what you tell the bot to say"""
-    print(message_object.text.split(' ', 1)[1])
     client.send(Message(text=message_object.text.split(' ',1)[1]), thread_id=thread_id, thread_type=thread_type)
 
 def list_functions(client, author_id, message_object, thread_id, thread_type):
@@ -184,7 +255,20 @@ def world_peace(client, author_id, message_object, thread_id, thread_type):
     """Creates world peace"""
     kick_random(client, author_id, message_object, thread_id, thread_type)
     client.sendLocalImage("resources/worldpeace.gif", thread_id=thread_id, thread_type=thread_type)
-    
+
+def urban_dict(client, author_id, message_object, thread_id, thread_type):
+    """Creates world peace"""
+    word = message_object.text.split(' ',1)[1]
+    r = requests.get("http://www.urbandictionary.com/define.php?term={}".format(word))
+    soup = BeautifulSoup(r.content)
+    client.send(Message(text=soup.find("div",attrs={"class":"meaning"}).text), thread_id=thread_id, thread_type=thread_type)
+
+def check_status(client, author_id, message_object, thread_id, thread_type):
+    client.send(Message(text="bot is live at {}".format(datetime.now())), thread_id=thread_id, thread_type=thread_type)
+
+# returns the most probable command if the command was not immediately in the command_lib
+def didyoumean(input_command):
+    return process.extract(input_command ,command_lib.keys(), scorer = fuzz.partial_ratio, limit = 1)[0][0]
 
 command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
                 "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
@@ -197,21 +281,29 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "ap" : {"func" : ap_comment, "description" : "Apurv's special comment"},
                 "aru" : {"func" : aru_comment, "description" : "Arunav's special comment"},
                 "kanav" : {"func" : kanav_comment, "description" : "Kanav's special comment"},
+                "rishi" : {"func" : rishi_comment, "description" : "Rishi's special comment"},
                 "kickr" : {"func" : kick_random, "description" : "Kicks a random person from the chat"},
                 "removeme" : {"func" : removeme, "description" : "Removes the person who calls this from the chat"},
                 "wiki" : {"func" : wiki, "description" : "Checks wikipedia for term"},
                 "return": {"func": return_self, "description" : "Echoes what you tell the bot to say"},
                 "pm" : {"func" : pm_person, "description" : "PMs the given person"}, 
                 "help": {"func": list_functions, "description" : "Lists all available functions"},
-                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}}
+                "admin": {"func": admin, "description": "Makes someone admin"},
+                "find": {"func":yelp_search, "description": "Finds stores based on location and keyword"}, 
+                "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary"},
+                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"},
+                "status" : {"func" : check_status, "description" : "Returns the bot's status"}}
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
         command = command_lib.get(message_object.text.split(' ')[0][1:])
         if command is not None:
             command["func"](client, author_id, message_object, thread_id, thread_type)
-    else:
-        sentiment_react(client, author_id, message_object, thread_id, thread_type)
+        else:
+            client.send(Message(text="That command doesnt exist. Did you mean !" + str(didyoumean(message_object.text.split(' ')[0][1:]))), thread_id=thread_id, thread_type=thread_type)
+            sentiment_react(client, author_id, message_object, thread_id, thread_type)	
+
+        
 
 def vote_handler(client, author_id, poll, thread_id, thread_type):
     """Routes actions after a poll is voted on."""
