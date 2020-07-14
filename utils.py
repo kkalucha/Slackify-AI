@@ -17,7 +17,6 @@ from bs4 import BeautifulSoup
 from fuzzywuzzy import process, fuzz
 import numpy as np
 
-
 meeting_polls = {}
 CONSENSUS_THRESHOLD = 0.5
 time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
@@ -255,14 +254,9 @@ def sentiment_react(client, author_id, message_object, thread_id, thread_type):
                 (0, 0.707, 0.707) : MessageReaction.WOW,
                 (0.707, 0.707, 0) : MessageReaction.ANGRY}
     similarity = {np.dot(pol, i)/(np.linalg.norm(pol)*np.linalg.norm(i)) : emotions[i] for i in emotions.keys()}
-    # if emotion vector is +/- ~26 degrees from an emotion, send that reaction
-    if sorted(list(similarity.keys()), reverse=True)[0] > 0.9:
+    # if emotion vector is +/- ~30 degrees from an emotion, send that reaction
+    if sorted(list(similarity.keys()), reverse=True)[0] > 0.866 and np.absolute(compound) > 0.4:
         client.reactToMessage(message_object.uid, similarity[sorted(list(similarity.keys()), reverse=True)[0]])
-    else:
-        if compound > 0.7:
-            client.reactToMessage(message_object.uid, MessageReaction.HEART)
-        elif compound < -0.7:
-            client.reactToMessage(message_object.uid, MessageReaction.SAD)
 
 def world_peace(client, author_id, message_object, thread_id, thread_type):
     """Creates world peace"""
