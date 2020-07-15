@@ -263,6 +263,7 @@ def sentiment_react(client, author_id, message_object, thread_id, thread_type):
 
 def reset_emotions(client, author_id, message_object, thread_id, thread_type):
     global emotionmap
+    global reaction_history
     default_emotions = {MessageReaction.HEART : [[1, 0, 0], 1],
                 MessageReaction.SAD : [[0, 0, 1], 1],
                 MessageReaction.SMILE : [[0.707, 0, 0.707], 1],
@@ -271,6 +272,8 @@ def reset_emotions(client, author_id, message_object, thread_id, thread_type):
     emotionmap = copy.deepcopy(default_emotions)
     reaction_history = {}
     client.send(Message(text=f'Emotion memory reset at {datetime.now()}'), thread_id=thread_id, thread_type=thread_type)
+    log.info(f'Emotion vectors: {emotionmap}')
+    log.info(f'Reaction history: {reaction_history}')
 
 def world_peace(client, author_id, message_object, thread_id, thread_type):
     """Creates world peace"""
@@ -390,13 +393,15 @@ def reaction_added_handler(client, mid, reaction, author_id, thread_id, thread_t
 def reaction_removed_handler(client, mid, author_id, thread_id, thread_type, ts, msg):
     global emotionmap
     global reaction_history
-    log.info('test')
     
     if author_id != client.uid:
         # update emotion map
         message = client.fetchMessageInfo(mid, thread_id=thread_id)
         pol = SentimentIntensityAnalyzer().polarity_scores(message.text)
-        reaction = reaction_history[(author_id, mid)]
+        try:
+            reaction = reaction_history[(author_id, mid)]
+        except KeyError: # emotion history cleared before reaction removed
+            return
         react_sentiment = emotionmap[reaction][0]
         react_sentiment = [emotionmap[reaction][1] * i for i in react_sentiment]
         react_sentiment = [i - j for i, j in zip(react_sentiment, list(pol.values())[:-1][::-1])]
