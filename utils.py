@@ -16,12 +16,19 @@ import requests
 from bs4 import BeautifulSoup
 from fuzzywuzzy import process, fuzz
 import numpy as np
+import copy
 
 meeting_polls = {}
 CONSENSUS_THRESHOLD = 0.5
 time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
 YELP_API_KEY = os.environ.get("YELP_API_KEY")
-
+# emotionmap = {<MessageReaction object> : [[<pos>, <neutral>, <neg>], <n_messages>]}
+emotionmap = {MessageReaction.HEART : [[1, 0, 0], 1],
+            MessageReaction.SAD : [[0, 0, 1], 1],
+            MessageReaction.SMILE : [[0.707, 0, 0.707], 1],
+            MessageReaction.WOW : [[0.707, 0.707, 0], 1],
+            MessageReaction.ANGRY : [[0, 0.707, 0.707], 1]}
+reaction_history = {}
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
     """Tags everyone in tshe chat"""
@@ -245,18 +252,25 @@ def list_functions(client, author_id, message_object, thread_id, thread_type):
     client.send(Message(text=message_string), thread_id=thread_id, thread_type=thread_type)
 
 def sentiment_react(client, author_id, message_object, thread_id, thread_type):
+    global emotionmap
     pol = SentimentIntensityAnalyzer().polarity_scores(message_object.text)
     compound = pol['compound']
-    pol = list(pol.values())[:-1]
-    emotions = {(0, 0, 1) : MessageReaction.HEART,
-                (1, 0, 0) : MessageReaction.SAD,
-                (0.707, 0, 0.707) : MessageReaction.SMILE,
-                (0, 0.707, 0.707) : MessageReaction.WOW,
-                (0.707, 0.707, 0) : MessageReaction.ANGRY}
-    similarity = {np.dot(pol, i)/(np.linalg.norm(pol)*np.linalg.norm(i)) : emotions[i] for i in emotions.keys()}
+    pol = list(pol.values())[:-1][::-1]
+    similarity = {np.dot(pol, emotionmap[i][0])/(np.linalg.norm(pol)*np.linalg.norm(emotionmap[i][0])) : i for i in emotionmap.keys()}
     # if emotion vector is +/- ~30 degrees from an emotion, send that reaction
     if sorted(list(similarity.keys()), reverse=True)[0] > 0.866 and np.absolute(compound) > 0.4:
         client.reactToMessage(message_object.uid, similarity[sorted(list(similarity.keys()), reverse=True)[0]])
+
+def reset_emotions(client, author_id, message_object, thread_id, thread_type):
+    global emotionmap
+    default_emotions = {MessageReaction.HEART : [[1, 0, 0], 1],
+                MessageReaction.SAD : [[0, 0, 1], 1],
+                MessageReaction.SMILE : [[0.707, 0, 0.707], 1],
+                MessageReaction.WOW : [[0.707, 0.707, 0], 1],
+                MessageReaction.ANGRY : [[0, 0.707, 0.707], 1]}
+    emotionmap = copy.deepcopy(default_emotions)
+    reaction_history = {}
+    client.send(Message(text=f'Emotion memory reset at {datetime.now()}'), thread_id=thread_id, thread_type=thread_type)
 
 def world_peace(client, author_id, message_object, thread_id, thread_type):
     """Creates world peace"""
@@ -276,6 +290,11 @@ def check_status(client, author_id, message_object, thread_id, thread_type):
 # returns the most probable command if the command was not immediately in the command_lib
 def didyoumean(input_command):
     return process.extract(input_command ,command_lib.keys(), scorer = fuzz.partial_ratio, limit = 1)[0][0]
+    
+def recite(client, author_id, message_object, thread_id, thread_type):
+    client.send(Message(text="1. A robot may not injure a human being or, through inaction, allow a human being to come to harm.\n" 
+                        + "2. A robot must obey the orders given it by human beings except where such orders would conflict with the First Law.\n" 
+                        + "3. A robot must protect its own existence as long as such protection does not conflict with the First or Second Laws"), thread_id=thread_id, thread_type=thread_type)
 
 command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
                 "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
@@ -299,7 +318,9 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "find": {"func":yelp_search, "description": "Finds stores based on location and keyword"}, 
                 "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary"},
                 "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"},
-                "status" : {"func" : check_status, "description" : "Returns the bot's status"}}
+                "status" : {"func" : check_status, "description" : "Returns the bot's status"},
+                "recite" : {"func" : recite, "description" : "Recites the three laws"},
+                "emotionreset" : {"func" : reset_emotions, "description" : "Resets emotion memory"}}
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
@@ -348,11 +369,42 @@ def person_removed_handler(client, removed_id, author_id, thread_id):
 def fr_handler(client, from_id, msg):
     pass
 
-def reaction_added_handler(client, reaction, author_id, thread_id, thread_type):
-    pass
+def reaction_added_handler(client, mid, reaction, author_id, thread_id, thread_type):
+    global emotionmap
+    global reaction_history
+    
+    if author_id != client.uid:
+        # add to reaction reaction history
+        reaction_history[(author_id, mid)] = reaction
+        # update emotion map
+        pol = SentimentIntensityAnalyzer().polarity_scores(client.fetchMessageInfo(mid, thread_id=thread_id).text)
+        react_sentiment = emotionmap[reaction][0]
+        react_sentiment = [emotionmap[reaction][1] * i for i in react_sentiment]
+        react_sentiment = [i + j for i, j in zip(react_sentiment, list(pol.values())[:-1][::-1])]
+        emotionmap[reaction][1] += 1
+        react_sentiment = [float(i / emotionmap[reaction][1]) for i in react_sentiment]
+        emotionmap[reaction][0] = react_sentiment
+        log.info(f"Added sentiment {pol} for message {mid} to {reaction}.")
+        log.info(emotionmap)
 
-def reaction_removed_handler(client, author_id, thread_id, thread_type, ts, msg):
-    pass
+def reaction_removed_handler(client, mid, author_id, thread_id, thread_type, ts, msg):
+    global emotionmap
+    global reaction_history
+    log.info('test')
+    
+    if author_id != client.uid:
+        # update emotion map
+        message = client.fetchMessageInfo(mid, thread_id=thread_id)
+        pol = SentimentIntensityAnalyzer().polarity_scores(message.text)
+        reaction = reaction_history[(author_id, mid)]
+        react_sentiment = emotionmap[reaction][0]
+        react_sentiment = [emotionmap[reaction][1] * i for i in react_sentiment]
+        react_sentiment = [i - j for i, j in zip(react_sentiment, list(pol.values())[:-1][::-1])]
+        emotionmap[reaction][1] -= 1
+        react_sentiment = [float(i / emotionmap[reaction][1]) for i in react_sentiment]
+        emotionmap[reaction][0] = react_sentiment
+        log.info(f"Removed sentiment {pol} for message {mid} to {reaction}.")
+        log.info(emotionmap)
 
 def timestamp_handler(client, buddylist, msg):
     pass
