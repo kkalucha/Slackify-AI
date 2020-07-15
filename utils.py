@@ -275,7 +275,7 @@ def make_friend(client, author_id, message_object, thread_id, thread_type):
     person_to_friend = message_object.text.split(' ', 1)[1]
     for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
         if person_to_friend.lower() in person.name.lower():
-            client.friendConnect(person.uid)
+            Client.friendConnect(client, person.uid)
 
 command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
                 "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
