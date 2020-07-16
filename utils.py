@@ -299,7 +299,7 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "find": {"func":yelp_search, "description": "Finds stores based on location and keyword"}, 
                 "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary"},
                 "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"},
-                "friend" : {"func" : make_friend, "description" : "Not sure yet tbh"},
+                "friend" : {"func" : make_friend, "description" : "Will add the person specified as a facebook friend"},
                 "status" : {"func" : check_status, "description" : "Returns the bot's status"}}
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
