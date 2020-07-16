@@ -270,6 +270,13 @@ def check_status(client, author_id, message_object, thread_id, thread_type):
 def didyoumean(input_command):
     return process.extract(input_command ,command_lib.keys(), scorer = fuzz.partial_ratio, limit = 1)[0][0]
 
+def make_friend(client, author_id, message_object, thread_id, thread_type):
+    gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
+    person_to_friend = message_object.text.split(' ', 1)[1]
+    for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
+        if person_to_friend.lower() in person.name.lower():
+            Client.friendConnect(client, person.uid)
+
 command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
                 "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
                 "meet" : {"func" : hear_meet, "description" : "Creates poll to decide on time for given date"},
@@ -292,6 +299,7 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "find": {"func":yelp_search, "description": "Finds stores based on location and keyword"}, 
                 "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary"},
                 "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"},
+                "friend" : {"func" : make_friend, "description" : "Will add the person specified as a facebook friend"},
                 "status" : {"func" : check_status, "description" : "Returns the bot's status"}}
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
