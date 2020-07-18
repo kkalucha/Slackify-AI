@@ -325,12 +325,12 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "pm" : {"func" : pm_person, "description" : "PMs the given person"}, 
                 "help": {"func": list_functions, "description" : "Lists all available functions"},
                 "admin": {"func": admin, "description": "Makes someone admin"},
-                "find": {"func":yelp_search, "description": "Finds stores based on location and keyword"}, 
+                "yelp": {"func":yelp_search, "description": "Finds stores based on location and keyword"}, 
                 "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary"},
                 "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"},
                 "recite" : {"func" : recite, "description" : "Recites the three laws"},
                 "emotionreset" : {"func" : reset_emotions, "description" : "Resets emotion memory"},
-                "friend" : {"func" : make_friend, "description" : "Will add the person specified as a facebook friend"},
+                "friend" : {"func" : make_friend, "description" : "Will accept the person's friend request"},
                 "status" : {"func" : check_status, "description" : "Returns the bot's status"}}
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
