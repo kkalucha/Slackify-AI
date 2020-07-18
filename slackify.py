@@ -72,7 +72,7 @@ class SlackifyBot(Client):
                 author_id, mid, reaction.name, thread_id, thread_type.name
             )
         )
-        utils.reaction_added_handler(self, reaction, author_id, thread_id, thread_type)
+        utils.reaction_added_handler(self, mid, reaction, author_id, thread_id, thread_type)
     
     def onReactionRemoved(self, mid, author_id, thread_id, thread_type, ts, msg):
         log.info(
@@ -80,7 +80,7 @@ class SlackifyBot(Client):
                 author_id, mid, thread_id, thread_type
             )
         )
-        utils.reaction_removed_handler(self, author_id, thread_id, thread_type, ts, msg)
+        utils.reaction_removed_handler(self, mid, author_id, thread_id, thread_type, ts, msg)
     
     def onChatTimestamp(self, buddylist, msg):
         log.debug("Chat Timestamps received: {}".format(buddylist))
