@@ -1,9 +1,9 @@
 # Slackify-AI
 [![HitCount](http://hits.dwyl.com/kkalucha/Slackify-AI.svg)](http://hits.dwyl.com/kkalucha/Slackify-AI)
+
 Slackify AI is a Facebook Messenger bot designed to bring the best features of Slack to Messenger in a clean and consolidated manner.
 
 ## Features
----
 #### Tagging
 1. Tag all people in a group chat - `!all`
 2. Tag a random person from the group chat - `!randomp`
@@ -36,4 +36,4 @@ Slackify AI is a Facebook Messenger bot designed to bring the best features of S
 NOTE: Anonchat is not fully anonymous, it just prevents the recipient from knowing your identity -- it's not a tool to say mean or problematic things to people. Please use responsibly.
 1. Start an anonymous chat session with someone - `!send [<person name>] message`
 2. Reply to an anonymous message from a chat session - `!reply [<id or person name>] message`
-3. End a chat session and delete all corresponding data - `!end <person name>
+3. End a chat session and delete all corresponding data - `!end <person name>`
