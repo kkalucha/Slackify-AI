@@ -220,9 +220,6 @@ def world_peace(client, author_id, message_object, thread_id, thread_type):
     """Creates world peace"""
     kick_random(client, author_id, message_object, thread_id, thread_type)
     client.sendLocalImage("resources/worldpeace.gif", thread_id=thread_id, thread_type=thread_type)
-    if message_object.text == "!removeme" and thread_type == ThreadType.GROUP:
-        log.info("{} will be removed from {}".format(author_id, thread_id))
-        client.removeUserFromGroup(author_id, thread_id=thread_id)
 
 def pin(client, author_id, message_object, thread_id, thread_type):
     #making sure something isnt pinned in a User thread to save space
