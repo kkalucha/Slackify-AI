@@ -3,11 +3,15 @@ import random
 from datetime import datetime, date, timedelta
 from dateparser import parse
 import wikipedia
-from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, ShareAttachment, MessageReaction
+from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, ShareAttachment, MessageReaction, FBchatException
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 import requests
 from bs4 import BeautifulSoup
 from fuzzywuzzy import process, fuzz
+import firebase_admin	
+from firebase_admin import credentials	
+from firebase_admin import db	
+import os 
 
 
 meeting_polls = {}
@@ -15,17 +19,18 @@ CONSENSUS_THRESHOLD = 0.5
 time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
 
 
-
 # Fetch the service account key JSON file contents
 cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
 
-# Initialize the app with a custom auth variable, limiting the server's access
-firebase_admin.initialize_app(cred, {
-    'databaseURL': os.environ.get("DATABASEURL"),
-    'databaseAuthVariableOverride': {
-        'uid': os.environ.get("WORKERID")
-    }
-})
+#this if statement is crucial to make sure that the file is able to be reloaded with out initilizing multiple apps
+if not firebase_admin._apps:
+    # Initialize the app with a custom auth variable, limiting the server's access
+    firebase_admin.initialize_app(cred, {
+        'databaseURL': os.environ.get("DATABASEURL"),
+        'databaseAuthVariableOverride': {
+            'uid': os.environ.get("WORKERID")
+        }
+    })
 
 # The app only has access as defined in the Security Rules
 groups_ref = db.reference('/groups')
@@ -230,26 +235,58 @@ def pin(client, author_id, message_object, thread_id, thread_type):
     pin_get = groups_ref.child(thread_id).child("pin_id").get()
     if message_object.replied_to == None:
         #this is if they want to pin a string 
-        to_pin = message_object.text[message_object.text.find("n") + 1:]
-        if exist_check is None:
+        to_pin = message_object.text.split(' ')[1:]
+        
+        if not to_pin:
+            client.send(Message(text="Make sure you have something to pin!"), thread_id=thread_id, thread_type=thread_type)
+            return
+        
+        if string_get is None:
             groups_ref.child(thread_id).set({"string": to_pin})
         else:
             groups_ref.child(thread_id).update({"string": to_pin})
+        
+        #making sure pin_id doesnt exist or equals nulls to make sure only variable is occuplied at a time
+        if pin_get != None:
+            groups_ref.child(thread_id).child("pin_id").delete()
     else:
-        #this if they want to pin an image
+        #this if they want to pin either an attachment or want to pin by replying to it
+        if pin_get is None:
+            groups_ref.child(thread_id).set({"pin_id": message_object.replied_to.uid})
+        else:
+            groups_ref.child(thread_id).update({"pin_id": message_object.replied_to.uid})
 
+        if string_get != None:
+                groups_ref.child(thread_id).child("string").delete()
 
 
 def brief(client, author_id, message_object, thread_id, thread_type):
     if Client.fetchThreadInfo(client, thread_id)[thread_id].type == ThreadType.USER:
         client.send(Message(text="Brief only works in Group Chats"), thread_id=thread_id, thread_type=thread_type)
         return
-
-    exist_check = groups_ref.child(thread_id).child("pin_id").get()
-    if exist_check is None:
+    
+    string_get = groups_ref.child(thread_id).child("string").get()
+    pin_get = groups_ref.child(thread_id).child("pin_id").get()
+    
+    if string_get is None and pin_get is None:
         client.send(Message(text="You never pinned anything"), thread_id=thread_id, thread_type=thread_type)
-    else: 
-        client.send(Message(text=str(groups_ref.child(thread_id).child("pin_id").get())), thread_id=thread_id, thread_type=thread_type)
+    elif pin_get is None: 
+        #return string pinned
+        client.send(Message(text=string_get), thread_id=thread_id, thread_type=thread_type)
+    else:
+        #return the attachment pinned, also includes a provision incase someone decides to pin a string by replying to it
+        #in reality i pulled pinned messages either by the string itself which isnt the best, or by the message id which is better but this is
+        #something i will change later, the important thing is to wrap the fetchMessageInfo to catch FBchatException in case the message doesnt exist 
+        try :
+            message_object = Client.fetchMessageInfo(client, mid=pin_get, thread_id=thread_id)
+            print(message_object.attachments)
+            if not message_object.attachments:
+                client.send(Message(text=message_object.text), thread_id=thread_id, thread_type=thread_type)
+            else:
+                for x in message_object.attachments:
+                    client.forwardAttachment(x.uid,thread_id)
+        except FBchatException:
+            client.send(Message(text="Your Pinned Message might not exist anymore"), thread_id=thread_id, thread_type=thread_type)
 
 def urban_dict(client, author_id, message_object, thread_id, thread_type):
     """Creates world peace"""
@@ -287,7 +324,10 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "admin": {"func": admin, "description": "Makes someone admin"},
                 "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary"},
                 "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"},
-                "status" : {"func" : check_status, "description" : "Returns the bot's status"}}
+                "status" : {"func" : check_status, "description" : "Returns the bot's status"},
+                "pin" : {"func" : pin, "description" : "pins a message: call !pin to store the following text or reply to an image/text with !pin"},
+                "brief" : {"func" : brief, "description" : "returns your pinned image or text"}
+                }
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
@@ -296,7 +336,8 @@ def command_handler(client, author_id, message_object, thread_id, thread_type):
             command["func"](client, author_id, message_object, thread_id, thread_type)
         else:
             client.send(Message(text="That command doesnt exist. Did you mean !" + str(didyoumean(message_object.text.split(' ')[0][1:]))), thread_id=thread_id, thread_type=thread_type)
-            sentiment_react(client, author_id, message_object, thread_id, thread_type)	
+    else:
+        sentiment_react(client, author_id, message_object, thread_id, thread_type)	
 
         
 
