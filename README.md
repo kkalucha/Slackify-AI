@@ -2,7 +2,11 @@
 [![HitCount](http://hits.dwyl.com/kkalucha/Slackify-AI.svg)](http://hits.dwyl.com/kkalucha/Slackify-AI)
 
 Slackify AI is a Facebook Messenger bot designed to bring the best features of Slack to Messenger in a clean and consolidated manner.
-
+---
+## Getting Started
+  1. Add <INSERT BOT NAME HERE> as a friend on Facebook
+  2. Add <INSERT BOT NAME HERE> to any one of your group chats!
+  3. Type `!friend <your name here>` for it to accept your friend request
 ## Features
 #### Tagging
 1. Tag all people in a group chat - `!all`
