@@ -366,7 +366,7 @@ def brief(client, author_id, message_object, thread_id, thread_type):
             client.send(Message(text="Your Pinned Message might not exist anymore"), thread_id=thread_id, thread_type=thread_type)
 
 def urban_dict(client, author_id, message_object, thread_id, thread_type):
-    """Creates world peace"""
+    """Returns query output from Urban Dictionary"""
     word = message_object.text.split(' ',1)[1]
     r = requests.get("http://www.urbandictionary.com/define.php?term={}".format(word))
     soup = BeautifulSoup(r.content)
@@ -390,6 +390,16 @@ def make_friend(client, author_id, message_object, thread_id, thread_type):
     for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
         if person_to_friend.lower() in person.name.lower():
             Client.friendConnect(client, person.uid)
+
+#brew install poppler if on mac or pip install python-poppler on Ubuntu as in requirements.txt
+def scenesfromahat(client, author_id, message_object, thread_id, thread_type):
+	os.system("rm -rf scenesfromahat.pdf")
+	os.system("rm -rf scenesfromahat.txt")
+	os.system("wget https://docs.google.com/document/d/1Y3dCl8wC8Za_av1wN2GyJAquEoonE134ejjGIaJXzag/export?format=pdf -O scenesfromahat.pdf")
+	os.system("pdftotext -layout scenesfromahat.pdf scenesfromahat.txt")
+	with open("scenesfromahat.txt") as f:
+		lines = f.readlines()
+		client.send(Message(text=random.choice(lines)), thread_id=thread_id, thread_type=thread_type)
 
 command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
                 "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
@@ -418,7 +428,8 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "brief" : {"func" : brief, "description" : "returns your pinned image or text"},
                 "recite" : {"func" : recite, "description" : "Recites the three laws"},
                 "emotionreset" : {"func" : reset_emotions, "description" : "Resets emotion memory"},
-                "friend" : {"func" : make_friend, "description" : "Will accept the person's friend request"}
+                "friend" : {"func" : make_friend, "description" : "Will accept the person's friend request"},
+                "scenesfromahat" : {"func" : scenesfromahat, "description" : "Returns a random sentence from Scenes from a Hat"}
                }
 
 
