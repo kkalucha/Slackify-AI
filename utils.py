@@ -36,8 +36,8 @@ emotionmap = {MessageReaction.HEART : [[1, 0, 0], 1],
 reaction_history = {}
 
 # Fetch the service account key JSON file contents
-cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
 
+cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
 #this if statement is crucial to make sure that the file is able to be reloaded with out initilizing multiple apps
 if not firebase_admin._apps:
     # Initialize the app with a custom auth variable, limiting the server's access
@@ -228,7 +228,7 @@ def aru_comment(client, author_id, message_object, thread_id, thread_type):
 
 def kanav_comment(client, author_id, message_object, thread_id, thread_type):
     """Kanav's special comment"""
-    client.send(Message(text="If you commit to master I will kILL you"), thread_id=thread_id, thread_type=thread_type)
+    client.send(Message(text="yEa i gO tO cOlOmBiA kOlLeGe iN tHe ViLlAgE oF oLd dOrK"), thread_id=thread_id, thread_type=thread_type)
 
 def rishi_comment(client, author_id, message_object, thread_id, thread_type):
     """Rishi's special comment"""
