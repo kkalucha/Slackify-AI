@@ -21,6 +21,8 @@ from firebase_admin import db
 import os 
 import numpy as np
 import copy
+import re
+from hashlib import shake_256
 
 
 meeting_polls = {}
@@ -34,6 +36,10 @@ emotionmap = {MessageReaction.HEART : [[1, 0, 0], 1],
             MessageReaction.WOW : [[0.707, 0.707, 0], 1],
             MessageReaction.ANGRY : [[0, 0.707, 0.707], 1]}
 reaction_history = {}
+# anon_dict {hash(rand) : sender_id}
+anon_dict = {}
+# anon_target_dict {hash(rand): target_id}
+anon_target_dict = {}
 
 # Fetch the service account key JSON file contents
 
@@ -391,6 +397,126 @@ def make_friend(client, author_id, message_object, thread_id, thread_type):
         if person_to_friend.lower() in person.name.lower():
             Client.friendConnect(client, person.uid)
 
+def send_anon(client, author_id, message_object, thread_id, thread_type):
+    """
+    Sends message to selected person.
+    Format: !send [target] message
+    """
+    global anon_dict
+    global anon_target_dict
+    
+    if thread_type != ThreadType.USER:
+        client.send(Message(text="Sorry, this feature only works in my PM."), thread_id=thread_id, thread_type=thread_type)
+        return
+    try:
+        target = re.match(r"[^[]*\[([^]]*)\]", message_object.text).groups()[0]
+        message = message_object.text.replace(f"[{target}]", "").split(" ", 1)[1][1:]
+    except:
+        client.send(Message(text="Didn't give a message! Usage: !send [recipient name] message"), thread_id=thread_id, thread_type=thread_type)
+        return
+    # find recipient
+    target = client.searchForUsers(target, limit=1)[0]
+    if not target.is_friend:
+        client.send(Message(text=f"I can't contact {target.first_name} {target.last_name}; I'm not friends with them."), thread_id=thread_id, thread_type=thread_type)
+        return
+    # add author to lookup table {sha256(author_id + salt) : author_id}
+    anon_id = shake_256(str(int(author_id) + random.randint(-1e4,1e4)).encode('utf-8')).hexdigest(8)
+    anon_dict[anon_id] = author_id
+    anon_target_dict[anon_id] = target.uid
+    # pm recipient
+    client.send(Message(text=f'New message from {anon_id}:\n{message}\nTo respond, copy/paste the template below and add in your response.'), thread_id=target.uid, thread_type=ThreadType.USER)
+    client.send(Message(text=f'!reply [{anon_id}] <your message here>'), thread_id=target.uid, thread_type=ThreadType.USER)
+    time.sleep(0.2)
+    client.send(Message(text=f"Message sent from you ({anon_id}) to {target.first_name} {target.last_name}.\nReminder: you can end this chat session at any time by typing !end {target.first_name}"), thread_id=thread_id, thread_type=thread_type)
+    log.info(anon_dict)
+    log.info(anon_target_dict)
+
+def reply_anon(client, author_id, message_object, thread_id, thread_type):
+    """
+    Replies to message from anonymous sender.
+    Format: !reply [sender's id] message
+    """
+    global anon_dict
+    global anon_target_dict
+    
+    if thread_type != ThreadType.USER:
+        client.send(Message(text="Sorry, this feature only works in my PM."), thread_id=thread_id, thread_type=thread_type)
+        return
+    try:
+        target = re.match(r"[^[]*\[([^]]*)\]", message_object.text).groups()[0]
+        message = message_object.text.replace(f"[{target}]", "").split(" ", 1)[1][1:]
+    except:
+        client.send(Message(text="Didn't give a message! Usage: !reply [recipient id] message"), thread_id=thread_id, thread_type=thread_type)
+        return
+        
+    # determine whether message is coming from sender or target
+    if author_id in anon_target_dict.values(): # message is from a target -> target is a hexcode
+        target_user = client.fetchUserInfo(author_id)[author_id]
+        if target in anon_dict.keys():
+            client.send(Message(text=f"Reply from {target_user.first_name}: {message}\nTo reply to them, type !reply [<their name here>] <your message here>"), thread_id=anon_dict[target], thread_type=ThreadType.USER)
+            time.sleep(0.2)
+            client.send(Message(text=f'Reply sent to {target}.'), thread_id=thread_id, thread_type=thread_type)
+            return
+        else: # chat session has been deleted
+            client.send(Message(text=f"You don't appear to have an active chat session with {target}. Use !send to start one."), thread_id=thread_id, thread_type=thread_type)
+            return
+    elif author_id in anon_dict.values(): # message is from a sender -> target is a name
+        target_user = client.searchForUsers(target, limit=1)[0]
+        # make sure sender and target have a session going
+        for k, v in anon_dict.items():
+            if v == author_id and anon_target_dict[k] == target_user.uid:
+                client.send(Message(text=f"Reply from {k}: {message}\nCopy/paste the template below to send a reply."), thread_id=target_user.uid, thread_type=ThreadType.USER)
+                client.send(Message(text=f"!reply [{k}] <reply here>"), thread_id=target_user.uid, thread_type=ThreadType.USER)
+                time.sleep(0.2)
+                client.send(Message(text=f'Reply sent from you ({anon_id}) to {target_user.first_name}.'), thread_id=thread_id, thread_type=thread_type)
+                return
+        # if code reaches here there was no active session found
+        client.send(Message(text=f"You don't appear to have an active chat session with {target_user.first_name}. Use !send to start one."), thread_id=thread_id, thread_type=thread_type)
+        return
+    else:
+        client.send(Message(text="You don't have any active chat sessions open. Either use !send to deliver an anonymous message or wait for one to come to you."), thread_id=thread_id, thread_type=thread_type)
+    log.info(anon_dict)
+    log.info(anon_target_dict)
+
+def end_anon(client, author_id, message_object, thread_id, thread_type):
+    """
+    Ends an anonymous chat session and destroys data.
+    Format: !end <person name>
+    """
+    global anon_dict
+    global anon_target_dict
+    
+    if thread_type != ThreadType.USER:
+        client.send(Message(text='Please only do this in my PM.'), thread_id=thread_id, thread_type=thread_type)
+        return
+    
+    try:
+        target = message_object.text.split(' ', 1)[1]
+        target_id = client.searchForUsers(target, limit=1)[0].uid
+    except IndexError:
+        client.send(Message(text="Who do I end? Usage: !end <person name here>"), thread_id=thread_id, thread_type=thread_type)
+        return 
+    
+    # make sure there's at least one active session between the sender and target
+    author_chats = set([key for key, value in anon_dict.items() if value == author_id])
+    target_chats = set([key for key, value in anon_target_dict.items() if value == target_id])
+    common_chats = list(author_chats & target_chats)
+    if len(common_chats) == 1:
+        del anon_dict[common_chats[0]]
+        del anon_target_dict[common_chats[0]]
+        client.send(Message(text=f'Session with {target} ended. All data deleted.'), thread_id=thread_id, thread_type=thread_type)
+    elif len(common_chats) > 1:
+        client.send(Message(text=f'Multiple active sessions with {target} detected. Deleting all {len(common_chats)} sessions...'), thread_id=thread_id, thread_type=thread_type)
+        for hexcode in common_chats:
+            del anon_dict[hexcode]
+            del anon_target_dict[hexcode]
+        client.send(Message(text='All data deleted.'), thread_id=thread_id, thread_type=thread_type)
+    else: # no chat sessions between sender and target
+        client.send(Message(text=f"You don't appear to have an active chat sessions with {target}. Use !send to start one."), thread_id=thread_id, thread_type=thread_type)
+        
+    log.info(anon_dict)
+    log.info(anon_target_dict)
+
 #brew install poppler if on mac or pip install python-poppler on Ubuntu as in requirements.txt
 def scenesfromahat(client, author_id, message_object, thread_id, thread_type):
 	os.system("rm -rf scenesfromahat.pdf")
@@ -429,6 +555,10 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "recite" : {"func" : recite, "description" : "Recites the three laws"},
                 "emotionreset" : {"func" : reset_emotions, "description" : "Resets emotion memory"},
                 "friend" : {"func" : make_friend, "description" : "Will accept the person's friend request"},
+                "status" : {"func" : check_status, "description" : "Returns the bot's status"},
+                "send" : {"func" : send_anon, "description" : "Sends anonymous message to specified person"},
+                "reply" : {"func" : reply_anon, "description" : "Replies to anonymous message"},
+                "end" : {"func" : end_anon, "description" : "Ends anonymous chat session"}},
                 "scenesfromahat" : {"func" : scenesfromahat, "description" : "Returns a random sentence from Scenes from a Hat"}
                }
 
