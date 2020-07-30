@@ -1,29 +1,29 @@
-import time
-import random
-from datetime import datetime, date, timedelta
-from dateparser import parse
-import wikipedia
-from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, ShareAttachment, MessageReaction, FBchatException
-from nltk.sentiment.vader import SentimentIntensityAnalyzer
-import json
-import requests
-import urllib
-import os
-from urllib.error import HTTPError
-from urllib.parse import quote
-from urllib.parse import urlencode
-import requests
-from bs4 import BeautifulSoup
-from fuzzywuzzy import process, fuzz
-import firebase_admin	
-from firebase_admin import credentials	
-from firebase_admin import db	
-import os 
-import numpy as np
 import copy
+import json
+import os
+import random
 import re
+import time
+import urllib
+from datetime import date, datetime, timedelta
 from hashlib import shake_256
+from urllib.error import HTTPError
+from urllib.parse import quote, urlencode
 
+import firebase_admin
+import numpy as np
+import requests
+import wikipedia
+from bs4 import BeautifulSoup
+from dateparser import parse
+from fbchat import (Client, FBchatException, Mention, Message, MessageReaction,
+                    Poll, PollOption, ShareAttachment, ThreadType, log)
+from firebase_admin import credentials, db
+from fuzzywuzzy import fuzz, process
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+
+from config import action_queue
+from objects import Action
 
 meeting_polls = {}
 CONSENSUS_THRESHOLD = 0.5
@@ -42,7 +42,6 @@ anon_dict = {}
 anon_target_dict = {}
 
 # Fetch the service account key JSON file contents
-
 cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
 #this if statement is crucial to make sure that the file is able to be reloaded with out initilizing multiple apps
 if not firebase_admin._apps:
@@ -74,16 +73,17 @@ if not firebase_admin._apps:
 groups_ref = db.reference('/groups')
 
 def tag_all(client, author_id, message_object, thread_id, thread_type):
-    """Tags everyone in tshe chat"""
+    """Tags everyone in the chat"""
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     mention_list = []
     message_text = '@all'
     for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
         mention_list.append(Mention(thread_id=person.uid, offset=0, length=1))
-    client.send(Message(text=message_text, mentions=mention_list), thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'message', thread_id, thread_type, text=message_text, mentions=mention_list))
 
 def random_mention(client, author_id, message_object, thread_id, thread_type):
     """Tags a random person"""
+    random.seed(time.time())
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     person_list = []
     for person in Client.fetchAllUsersFromThreads(self= client, threads = [gc_thread]):
@@ -92,7 +92,8 @@ def random_mention(client, author_id, message_object, thread_id, thread_type):
     chosen_person = person_list[chosen_number]
     person_name = chosen_person.first_name
     rand_mention = Mention(thread_id = chosen_person.uid, offset=0, length= len(person_name)+1)
-    client.send(Message(text = "@" + person_name + " you have been chosen", mentions=[rand_mention]), thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'message', thread_id, thread_type, 
+        text="@" + person_name + " you have been chosen", mentions=[rand_mention]))
 
 def admin(client, author_id, message_object, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
@@ -100,13 +101,10 @@ def admin(client, author_id, message_object, thread_id, thread_type):
     for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
         if person_to_admin.lower() in person.name.lower():
             log.info("{} added as admin {} from {}".format(author_id, person_to_admin, thread_id))
-            client.addGroupAdmins(person.uid, thread_id=thread_id)
+            action_queue.put(Action(client, 'makeadmin', thread_id, thread_type, pid=person.uid))
             return
     log.info("Unable to add admin: person not found.")
-def random_image(client, author_id, message_object,thread_id,thread_type):
-    """Sends a random image to chat"""
-    client.sendRemoteImage("https://scontent-sjc3-1.xx.fbcdn.net/v/t1.0-9/31706596_988075581341800_8419953087938035712_o.jpg?_nc_cat=101&_nc_sid=e007fa&_nc_ohc=6WKPJKXT4yQAX8izxEX&_nc_ht=scontent-sjc3-1.xx&oh=dd30e0dc74cffd606248ef9151576fe2&oe=5F2E0EBC",message=Message(text='This should work'), thread_id=thread_id, thread_type=thread_type)
-    
+   
 def hear_meet(client, author_id, message_object, thread_id, thread_type):
     """Creates poll to decide on time for given date"""
     global meeting_polls
@@ -120,14 +118,17 @@ def hear_meet(client, author_id, message_object, thread_id, thread_type):
         if msg_date.date() < today:
             raise ValueError
     except (IndexError, AssertionError) as e:
-        client.send(Message(text='I can\'t read that date.'), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, 
+            text='I can\'t read that date.'))
         return
     except ValueError:
-        client.send(Message(text='I\'m not stupid that date has passed.'), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, 
+            text='I\'m not stupid that date has passed.'))
         return
     meeting = Poll(title=f"Meeting on {datetime.strftime(msg_date, '%A, %x')}. Who's in?", options=[PollOption(text=time) for time in time_options])
-    client.createPoll(poll=meeting, thread_id=thread_id)
+    action_queue.put(Action(client, 'makepoll', thread_id, thread_type, poll=meeting))
     tag_all(client, author_id, None, thread_id, thread_type)
+
 def yelp_search(client, author_id, message_object, thread_id, thread_type):
     inputs_array = message_object.text.split(' ', 1)[1].split("in", 1)
     keyword = inputs_array[0]
@@ -176,7 +177,8 @@ def yelp_search(client, author_id, message_object, thread_id, thread_type):
     result_dict = request(API_HOST, SEARCH_PATH, YELP_API_KEY, url_params=url_params)
     returnString = json.dumps(result_dict)
     returnText = result_parser(result_dict)
-    client.send(Message(text= returnText),thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'message', thread_id, thread_type, text=returnText))
+
 def handle_meeting_vote(client, author_id, poll, thread_id, thread_type):
     global meeting_polls
     global CONSENSUS_THRESHOLD
@@ -195,10 +197,12 @@ def handle_meeting_vote(client, author_id, poll, thread_id, thread_type):
     if any(consensus[:-1]): # meeting is happening
         meeting_time = client.fetchPollOptions(poll.uid)[consensus.index(True)].text
         meeting_date = datetime.strftime(meeting_polls[poll.uid]['date'], '%A, %x')
-        client.send(Message(text=f'Consensus reached! Meeting at {meeting_time} on {meeting_date}'), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, 
+            text=f'Consensus reached! Meeting at {meeting_time} on {meeting_date}'))
         return
     elif consensus[-1]: # meeting is not happening
-        client.send(Message(text=f'Consensus reached! Meeting at {meeting_time} isn\'t happening.'), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, 
+            text=f'Consensus reached! Meeting at {meeting_time} isn\'t happening.'))
         return
     else:
         log.info(f"No consensus on poll {poll.uid} yet.")
@@ -207,19 +211,20 @@ def wiki(client, author_id, message_object, thread_id, thread_type):
     """Checks wikipedia for term"""
     try:
         search_term = message_object.text.split(' ', 1)[1]
-        search_result = Message(text=wikipedia.summary(search_term, sentences=2))
+        search_result = wikipedia.summary(search_term, sentences=2)
     except wikipedia.exceptions.WikipediaException:
-        client.send(Message(text='Invalid search term.'), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, 
+            text='Invalid search term.'))
         return
     except IndexError:
-        client.send(Message(text='You didn\'t give me anything to search dipshit.'), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, 
+            text='You didn\'t give me anything to search dipshit.'))
         return
-    client.send(search_result, thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'message', thread_id, thread_type, text=search_result))
 
 def laugh(client, author_id, message_object, thread_id, thread_type):
     """Laughs"""
-    gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
-    client.sendLocalVoiceClips(clip_paths="resources/laugh.aac", thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'voiceclip', thread_id, thread_type, clipPath="resources/laugh.aac"))
 
 def kick(client, author_id, message_object, thread_id, thread_type):
     """Kicks the specified user from the chat"""
@@ -228,39 +233,39 @@ def kick(client, author_id, message_object, thread_id, thread_type):
     for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
         if person_to_kick.lower() in person.name.lower():
             log.info("{} removed {} from {}".format(author_id, person_to_kick, thread_id))
-            client.removeUserFromGroup(person.uid, thread_id=thread_id)
+            action_queue.put(Action(client, 'removeuser', thread_id, thread_type, pid=person.uid))
             return
     log.info("Unable to remove: person not found.")
 
 def ap_comment(client, author_id, message_object, thread_id, thread_type):
     """Apurv's special comment"""
-    client.send(Message(text="yOu CaN't AuToMaTe HeAlThCaRe"), thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'message', thread_id, thread_type, text="yOu CaN't AuToMaTe HeAlThCaRe"))
     
 def sully_comment(client, author_id, message_object, thread_id, thread_type):
     """Sulaiman's special comment"""
-    client.send(Message(text="i Am NoT ___ gUyS I swEAr"), thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'message', thread_id, thread_type, text="i Am NoT ___ gUyS I swEAr"))
     
 def pranshu_comment(client, author_id, message_object, thread_id, thread_type):
     """Pranshu's special comment"""
-    client.send(Message(text="Pranshu is a student at the University of Illinois Urbana-Champaign studying Computer Science and Statistics. My interests lie in High Performance Computing (HPC) and in AI/Deep Learning. Recently I attended the Super Computing 19 conference where I represented my school as a member of the University of Illinois Student Cluster Competition team; our team won 2nd place nationwide. I've recently also won 2nd place at the National Center for Supercomputing Applications Deep Learning Hackathon. At the Technology Student Association’s national conference in June, 2019, my team won 1st place out of over 75 teams in a research presentation competition on exploring a novel application of artificial intelligence in a domain field (website: pinkai.tech). I am an enthusiastic candidate for any role relating to HPC or Deep Learning; I hope to expand my skill set in the summer of 2020 through an internship at a company focusing on these disciplines. "), thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'message', thread_id, thread_type, text="Pranshu is a student at the University of Illinois Urbana-Champaign studying Computer Science and Statistics. My interests lie in High Performance Computing (HPC) and in AI/Deep Learning. Recently I attended the Super Computing 19 conference where I represented my school as a member of the University of Illinois Student Cluster Competition team; our team won 2nd place nationwide. I've recently also won 2nd place at the National Center for Supercomputing Applications Deep Learning Hackathon. At the Technology Student Association’s national conference in June, 2019, my team won 1st place out of over 75 teams in a research presentation competition on exploring a novel application of artificial intelligence in a domain field (website: pinkai.tech). I am an enthusiastic candidate for any role relating to HPC or Deep Learning; I hope to expand my skill set in the summer of 2020 through an internship at a company focusing on these disciplines. "))
 
 def aru_comment(client, author_id, message_object, thread_id, thread_type):
     """Arunav's special comment"""
-    client.send(Message(text="Commit pushed to origin master"), thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'message', thread_id, thread_type, text="Commit pushed to origin master"))
 
 def kanav_comment(client, author_id, message_object, thread_id, thread_type):
     """Kanav's special comment"""
-    client.send(Message(text="yEa i gO tO cOlOmBiA kOlLeGe iN tHe ViLlAgE oF oLd dOrK"), thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'message', thread_id, thread_type, text="yEa i gO tO cOlOmBiA kOlLeGe iN tHe ViLlAgE oF oLd dOrK"))
 
 def rishi_comment(client, author_id, message_object, thread_id, thread_type):
     """Rishi's special comment"""
-    client.send(Message(text="yEa I gO tO gTeCh fOr ThE sKaTeBoArDiNg WeAtHer"), thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'message', thread_id, thread_type, text="yEa I gO tO gTeCh fOr ThE sKaTeBoArDiNg WeAtHer"))
 
 def removeme(client, author_id, message_object, thread_id, thread_type):
     """Removes the person who calls this from the chat"""
-    print("{} will be removed from {}".format(author_id, thread_id))
-    client.removeUserFromGroup(author_id, thread_id=thread_id)
-                   
+    log.info("{} will be removed from {}".format(author_id, thread_id))
+    action_queue.put(Action(client, 'removeuser', thread_id, thread_type, pid=author_id))
+
 def kick_random(client, author_id, message_object, thread_id, thread_type):
     """Kicks a random person from the chat"""
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
@@ -268,7 +273,7 @@ def kick_random(client, author_id, message_object, thread_id, thread_type):
     num = random.randint(0, len(persons_list)-1) #random number within range
     person = persons_list[num]
     log.info("{} removed {} from {}".format(author_id, "random", thread_id))
-    client.removeUserFromGroup(person.uid, thread_id=thread_id)
+    action_queue.put(Action(client, 'removeuser', thread_id, thread_type, pid=person.uid))
     return
     log.info("Unable to remove: person not found.")
                    
@@ -280,11 +285,11 @@ def pm_person(client, author_id, message_object, thread_id, thread_type):
         names = [person.first_name, person.last_name, person.nickname]
         if any([name in person_to_pm for name in names]):
             thread_id = person.uid
-    client.send(Message(text="hello friend"), thread_id=thread_id, thread_type=ThreadType.USER)
+    action_queue.put(Action(client, 'message', thread_id, ThreadType.USER, text="hello friend"))
 
 def return_self(client, author_id, message_object, thread_id, thread_type):
     """Echoes what you tell the bot to say"""
-    client.send(Message(text=message_object.text.split(' ',1)[1]), thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'message', thread_id, thread_type, text=message_object.text.split(' ',1)[1]))
 
 def list_functions(client, author_id, message_object, thread_id, thread_type):
     """Lists all available functions"""
@@ -292,7 +297,7 @@ def list_functions(client, author_id, message_object, thread_id, thread_type):
     for key in list(command_lib.keys()):
         if key != "help":
             message_string += str(key) + " - " + command_lib[key]['description'] + "\n"
-    client.send(Message(text=message_string), thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'message', thread_id, thread_type, text=message_string))
 
 def sentiment_react(client, author_id, message_object, thread_id, thread_type):
     global emotionmap
@@ -302,7 +307,8 @@ def sentiment_react(client, author_id, message_object, thread_id, thread_type):
     similarity = {np.dot(pol, emotionmap[i][0])/(np.linalg.norm(pol)*np.linalg.norm(emotionmap[i][0])) : i for i in emotionmap.keys()}
     # if emotion vector is +/- ~30 degrees from an emotion, send that reaction
     if sorted(list(similarity.keys()), reverse=True)[0] > 0.866 and np.absolute(compound) > 0.4:
-        client.reactToMessage(message_object.uid, similarity[sorted(list(similarity.keys()), reverse=True)[0]])
+        action_queue.put(Action(client, 'reaction', thread_id, thread_type, 
+            mid=message_object.uid, reaction=similarity[sorted(list(similarity.keys()), reverse=True)[0]]))
 
 def reset_emotions(client, author_id, message_object, thread_id, thread_type):
     global emotionmap
@@ -314,19 +320,19 @@ def reset_emotions(client, author_id, message_object, thread_id, thread_type):
                 MessageReaction.ANGRY : [[0, 0.707, 0.707], 1]}
     emotionmap = copy.deepcopy(default_emotions)
     reaction_history = {}
-    client.send(Message(text=f'Emotion memory reset at {datetime.now()}'), thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'message', thread_id, thread_type, text=f'Emotion memory reset at {datetime.now()}'))
     log.info(f'Emotion vectors: {emotionmap}')
     log.info(f'Reaction history: {reaction_history}')
 
 def world_peace(client, author_id, message_object, thread_id, thread_type):
     """Creates world peace"""
     kick_random(client, author_id, message_object, thread_id, thread_type)
-    client.sendLocalImage("resources/worldpeace.gif", thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'image', thread_id, thread_type, imagePath="resources/worldpeace.gif"))
 
 def pin(client, author_id, message_object, thread_id, thread_type):
     #making sure something isnt pinned in a User thread to save space
     if Client.fetchThreadInfo(client, thread_id)[thread_id].type == ThreadType.USER:
-        client.send(Message(text="Pin only works in Group chats!"), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text="Pin only works in Group chats!"))
         return
     
     #using these variables to check if the value exists either to prevent overwrites or to make only one variable is occupied at a time
@@ -337,7 +343,7 @@ def pin(client, author_id, message_object, thread_id, thread_type):
         to_pin = message_object.text.split(' ')[1:]
         
         if not to_pin:
-            client.send(Message(text="Make sure you have something to pin!"), thread_id=thread_id, thread_type=thread_type)
+            action_queue.put(Action(client, 'message', thread_id, thread_type, text="Make sure you have something to pin!"))
             return
         
         if string_get is None:
@@ -361,17 +367,17 @@ def pin(client, author_id, message_object, thread_id, thread_type):
 
 def brief(client, author_id, message_object, thread_id, thread_type):
     if Client.fetchThreadInfo(client, thread_id)[thread_id].type == ThreadType.USER:
-        client.send(Message(text="Brief only works in Group Chats"), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text="Brief only works in Group chats!"))
         return
     
     string_get = groups_ref.child(thread_id).child("string").get()
     pin_get = groups_ref.child(thread_id).child("pin_id").get()
     
     if string_get is None and pin_get is None:
-        client.send(Message(text="You never pinned anything"), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text="You never pinned anything"))
     elif pin_get is None: 
         #return string pinned
-        client.send(Message(text=string_get), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text=string_get))
     else:
         #return the attachment pinned, also includes a provision incase someone decides to pin a string by replying to it
         #in reality i pulled pinned messages either by the string itself which isnt the best, or by the message id which is better but this is
@@ -380,38 +386,38 @@ def brief(client, author_id, message_object, thread_id, thread_type):
             message_object = Client.fetchMessageInfo(client, mid=pin_get, thread_id=thread_id)
             print(message_object.attachments)
             if not message_object.attachments:
-                client.send(Message(text=message_object.text), thread_id=thread_id, thread_type=thread_type)
+                action_queue.put(Action(client, 'message', thread_id, thread_type, text=message_object.text))
             else:
                 for x in message_object.attachments:
-                    client.forwardAttachment(x.uid,thread_id)
+                    action_queue.put(Action(client, 'forward', thread_id, thread_type, attachmentID=x.uid))
         except FBchatException:
-            client.send(Message(text="Your Pinned Message might not exist anymore"), thread_id=thread_id, thread_type=thread_type)
+            action_queue.put(Action(client, 'message', thread_id, thread_type, text="Your Pinned Message might not exist anymore"))
 
 def urban_dict(client, author_id, message_object, thread_id, thread_type):
     """Returns query output from Urban Dictionary"""
     word = message_object.text.split(' ',1)[1]
     r = requests.get("http://www.urbandictionary.com/define.php?term={}".format(word))
-    soup = BeautifulSoup(r.content)
-    client.send(Message(text=soup.find("div",attrs={"class":"meaning"}).text), thread_id=thread_id, thread_type=thread_type)
+    soup = BeautifulSoup(r.content, features="html.parser")
+    action_queue.put(Action(client, 'message', thread_id, thread_type, text=soup.find("div",attrs={"class":"meaning"}).text))
 
 def check_status(client, author_id, message_object, thread_id, thread_type):
-    client.send(Message(text="bot is live at {}".format(datetime.now())), thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'message', thread_id, thread_type, text="bot is live at {}".format(datetime.now())))
 
 # returns the most probable command if the command was not immediately in the command_lib
 def didyoumean(input_command):
     return process.extract(input_command ,command_lib.keys(), scorer = fuzz.partial_ratio, limit = 1)[0][0]
     
 def recite(client, author_id, message_object, thread_id, thread_type):
-    client.send(Message(text="1. A robot may not injure a human being or, through inaction, allow a human being to come to harm.\n" 
+    action_queue.put(Action(client, 'message', thread_id, thread_type, text="1. A robot may not injure a human being or, through inaction, allow a human being to come to harm.\n" 
                         + "2. A robot must obey the orders given it by human beings except where such orders would conflict with the First Law.\n" 
-                        + "3. A robot must protect its own existence as long as such protection does not conflict with the First or Second Laws"), thread_id=thread_id, thread_type=thread_type)
+                        + "3. A robot must protect its own existence as long as such protection does not conflict with the First or Second Laws"))
 
 def make_friend(client, author_id, message_object, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     person_to_friend = message_object.text.split(' ', 1)[1]
     for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
         if person_to_friend.lower() in person.name.lower():
-            Client.friendConnect(client, person.uid)
+            action_queue.put(Action(client, 'makefriend', thread_id, thread_type, pid=person.uid))
 
 def send_anon(client, author_id, message_object, thread_id, thread_type):
     """
@@ -422,28 +428,27 @@ def send_anon(client, author_id, message_object, thread_id, thread_type):
     global anon_target_dict
     
     if thread_type != ThreadType.USER:
-        client.send(Message(text="Sorry, this feature only works in my PM."), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text="Sorry, this feature only works in my PM."))
         return
     try:
         target = re.match(r"[^[]*\[([^]]*)\]", message_object.text).groups()[0]
         message = message_object.text.replace(f"[{target}]", "").split(" ", 1)[1][1:]
     except:
-        client.send(Message(text="Didn't give a message! Usage: !send [recipient name] message"), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text="Didn't give a message! Usage: !send [recipient name] message"))
         return
     # find recipient
     target = client.searchForUsers(target, limit=1)[0]
     if not target.is_friend:
-        client.send(Message(text=f"I can't contact {target.first_name} {target.last_name}; I'm not friends with them."), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text=f"I can't contact {target.first_name} {target.last_name}; I'm not friends with them."))
         return
     # add author to lookup table {sha256(author_id + salt) : author_id}
     anon_id = shake_256(str(int(author_id) + random.randint(-1e4,1e4)).encode('utf-8')).hexdigest(8)
     anon_dict[anon_id] = author_id
     anon_target_dict[anon_id] = target.uid
     # pm recipient
-    client.send(Message(text=f'New message from {anon_id}:\n{message}\nTo respond, copy/paste the template below and add in your response.'), thread_id=target.uid, thread_type=ThreadType.USER)
-    client.send(Message(text=f'!reply [{anon_id}] <your message here>'), thread_id=target.uid, thread_type=ThreadType.USER)
-    time.sleep(0.2)
-    client.send(Message(text=f"Message sent from you ({anon_id}) to {target.first_name} {target.last_name}.\nReminder: you can end this chat session at any time by typing !end {target.first_name}"), thread_id=thread_id, thread_type=thread_type)
+    action_queue.put(Action(client, 'message', target.uid, ThreadType.USER, text=f'New message from {anon_id}:\n{message}\nTo respond, copy/paste the template below and add in your response.'))
+    action_queue.put(Action(client, 'message', target.uid, ThreadType.USER, text=f'!reply [{anon_id}] <your message here>'))
+    action_queue.put(Action(client, 'message', thread_id, thread_type, text=f"Message sent from you ({anon_id}) to {target.first_name} {target.last_name}.\nReminder: you can end this chat session at any time by typing !end {target.first_name}"))
     log.info(anon_dict)
     log.info(anon_target_dict)
 
@@ -456,41 +461,39 @@ def reply_anon(client, author_id, message_object, thread_id, thread_type):
     global anon_target_dict
     
     if thread_type != ThreadType.USER:
-        client.send(Message(text="Sorry, this feature only works in my PM."), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text="Sorry, this feature only works in my PM."))
         return
     try:
         target = re.match(r"[^[]*\[([^]]*)\]", message_object.text).groups()[0]
         message = message_object.text.replace(f"[{target}]", "").split(" ", 1)[1][1:]
     except:
-        client.send(Message(text="Didn't give a message! Usage: !reply [recipient id] message"), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text="Didn't give a message! Usage: !reply [recipient name] message"))
         return
         
     # determine whether message is coming from sender or target
     if author_id in anon_target_dict.values(): # message is from a target -> target is a hexcode
         target_user = client.fetchUserInfo(author_id)[author_id]
         if target in anon_dict.keys():
-            client.send(Message(text=f"Reply from {target_user.first_name}: {message}\nTo reply to them, type !reply [<their name here>] <your message here>"), thread_id=anon_dict[target], thread_type=ThreadType.USER)
-            time.sleep(0.2)
-            client.send(Message(text=f'Reply sent to {target}.'), thread_id=thread_id, thread_type=thread_type)
+            action_queue.put(Action(client, 'message', anon_dict[target], ThreadType.USER, text=f"Reply from {target_user.first_name}: {message}\nTo reply to them, type !reply [<their name here>] <your message here>"))
+            action_queue.put(Action(client, 'message', thread_id, thread_type, text=f'Reply sent to {target}.'))
             return
         else: # chat session has been deleted
-            client.send(Message(text=f"You don't appear to have an active chat session with {target}. Use !send to start one."), thread_id=thread_id, thread_type=thread_type)
+            action_queue.put(Action(client, 'message', thread_id, thread_type, text=f"You don't appear to have an active chat session with {target}. Use !send to start one."))
             return
     elif author_id in anon_dict.values(): # message is from a sender -> target is a name
         target_user = client.searchForUsers(target, limit=1)[0]
         # make sure sender and target have a session going
         for k, v in anon_dict.items():
             if v == author_id and anon_target_dict[k] == target_user.uid:
-                client.send(Message(text=f"Reply from {k}: {message}\nCopy/paste the template below to send a reply."), thread_id=target_user.uid, thread_type=ThreadType.USER)
-                client.send(Message(text=f"!reply [{k}] <reply here>"), thread_id=target_user.uid, thread_type=ThreadType.USER)
-                time.sleep(0.2)
-                client.send(Message(text=f'Reply sent from you ({anon_id}) to {target_user.first_name}.'), thread_id=thread_id, thread_type=thread_type)
+                action_queue.put(Action(client, 'message', target_user.uid, ThreadType.USER, text=f"Reply from {k}: {message}\nCopy/paste the template below to send a reply."))
+                action_queue.put(Action(client, 'message', target_user.uid, ThreadType.USER, text=f"!reply [{k}] <reply here>"))
+                action_queue.put(Action(client, 'message', thread_id, thread_type, text=f'Reply sent from you ({anon_id}) to {target_user.first_name}.'))
                 return
         # if code reaches here there was no active session found
-        client.send(Message(text=f"You don't appear to have an active chat session with {target_user.first_name}. Use !send to start one."), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text=f"You don't appear to have an active chat session with {target_user.first_name}. Use !send to start one."))
         return
     else:
-        client.send(Message(text="You don't have any active chat sessions open. Either use !send to deliver an anonymous message or wait for one to come to you."), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text="You don't have any active chat sessions open. Either use !send to deliver an anonymous message or wait for one to come to you."))
     log.info(anon_dict)
     log.info(anon_target_dict)
 
@@ -503,14 +506,14 @@ def end_anon(client, author_id, message_object, thread_id, thread_type):
     global anon_target_dict
     
     if thread_type != ThreadType.USER:
-        client.send(Message(text='Please only do this in my PM.'), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text='Please only do this in my PM.'))
         return
     
     try:
         target = message_object.text.split(' ', 1)[1]
         target_id = client.searchForUsers(target, limit=1)[0].uid
     except IndexError:
-        client.send(Message(text="Who do I end? Usage: !end <person name here>"), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text="Who do I end? Usage: !end <person name here>"))
         return 
     
     # make sure there's at least one active session between the sender and target
@@ -520,35 +523,34 @@ def end_anon(client, author_id, message_object, thread_id, thread_type):
     if len(common_chats) == 1:
         del anon_dict[common_chats[0]]
         del anon_target_dict[common_chats[0]]
-        client.send(Message(text=f'Session with {target} ended. All data deleted.'), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text=f'Session with {target} ended. All data deleted.'))
     elif len(common_chats) > 1:
-        client.send(Message(text=f'Multiple active sessions with {target} detected. Deleting all {len(common_chats)} sessions...'), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text=f'Multiple active sessions with {target} detected. Deleting all {len(common_chats)} sessions...'))
         for hexcode in common_chats:
             del anon_dict[hexcode]
             del anon_target_dict[hexcode]
-        client.send(Message(text='All data deleted.'), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text='All data deleted.'))
     else: # no chat sessions between sender and target
-        client.send(Message(text=f"You don't appear to have an active chat sessions with {target}. Use !send to start one."), thread_id=thread_id, thread_type=thread_type)
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text=f"You don't appear to have an active chat sessions with {target}. Use !send to start one."))
         
     log.info(anon_dict)
     log.info(anon_target_dict)
 
 #brew install poppler if on mac or pip install python-poppler on Ubuntu as in requirements.txt
 def scenesfromahat(client, author_id, message_object, thread_id, thread_type):
-	os.system("rm -rf scenesfromahat.pdf")
-	os.system("rm -rf scenesfromahat.txt")
-	os.system("wget https://docs.google.com/document/d/1Y3dCl8wC8Za_av1wN2GyJAquEoonE134ejjGIaJXzag/export?format=pdf -O scenesfromahat.pdf")
-	os.system("pdftotext -layout scenesfromahat.pdf scenesfromahat.txt")
-	with open("scenesfromahat.txt") as f:
-		lines = f.readlines()
-		client.send(Message(text=random.choice(lines)), thread_id=thread_id, thread_type=thread_type)
+    os.system("rm -rf scenesfromahat.pdf")
+    os.system("rm -rf scenesfromahat.txt")
+    os.system("wget https://docs.google.com/document/d/1Y3dCl8wC8Za_av1wN2GyJAquEoonE134ejjGIaJXzag/export?format=pdf -O scenesfromahat.pdf")
+    os.system("pdftotext -layout scenesfromahat.pdf scenesfromahat.txt")
+    with open("scenesfromahat.txt") as f:
+        lines = f.readlines()
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text=random.choice(lines)))
 
 command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
                 "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
                 "meet" : {"func" : hear_meet, "description" : "Creates poll to decide on time for given date"},
                 "laugh" : {"func" : laugh, "description" : "Laughs"},
                 "randomp" : {"func": random_mention, "description" : "Tags a random person"},
-                "randomi" : {"func": random_image, "description" : "Sends a random image to chat"},
                 "sully" : {"func" : sully_comment, "description" : "Sulaiman's special comment"},
                 "pranshu" : {"func" : pranshu_comment, "description" : "Pranshu's special comment"},
                 "ap" : {"func" : ap_comment, "description" : "Apurv's special comment"},
@@ -574,7 +576,7 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "status" : {"func" : check_status, "description" : "Returns the bot's status"},
                 "send" : {"func" : send_anon, "description" : "Sends anonymous message to specified person"},
                 "reply" : {"func" : reply_anon, "description" : "Replies to anonymous message"},
-                "end" : {"func" : end_anon, "description" : "Ends anonymous chat session"}},
+                "end" : {"func" : end_anon, "description" : "Ends anonymous chat session"},
                 "scenesfromahat" : {"func" : scenesfromahat, "description" : "Returns a random sentence from Scenes from a Hat"}
                }
 
@@ -585,7 +587,7 @@ def command_handler(client, author_id, message_object, thread_id, thread_type):
         if command is not None:
             command["func"](client, author_id, message_object, thread_id, thread_type)
         else:
-            client.send(Message(text="That command doesnt exist. Did you mean !" + str(didyoumean(message_object.text.split(' ')[0][1:]))), thread_id=thread_id, thread_type=thread_type)
+            action_queue.put(Action(client, 'message', thread_id, thread_type, text="That command doesnt exist. Did you mean !" + str(didyoumean(message_object.text.split(' ')[0][1:]))))
     else:
         sentiment_react(client, author_id, message_object, thread_id, thread_type)	
 
