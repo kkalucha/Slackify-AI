@@ -5,6 +5,13 @@ from dateparser import parse
 import wikipedia
 from fbchat import log, Client, Message, Mention, Poll, PollOption, ThreadType, ShareAttachment, MessageReaction, FBchatException
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import json
+import requests
+import urllib
+import os
+from urllib.error import HTTPError
+from urllib.parse import quote
+from urllib.parse import urlencode
 import requests
 from bs4 import BeautifulSoup
 from fuzzywuzzy import process, fuzz
@@ -12,12 +19,37 @@ import firebase_admin
 from firebase_admin import credentials	
 from firebase_admin import db	
 import os 
+import numpy as np
+import copy
 
 
 meeting_polls = {}
 CONSENSUS_THRESHOLD = 0.5
 time_options = ['10AM', '12PM', '2PM', '4PM', '6PM', '8PM', '10PM', 'Can\'t make it']
+YELP_API_KEY = os.environ.get("YELP_API_KEY")
+# emotionmap = {<MessageReaction object> : [[<pos>, <neutral>, <neg>], <n_messages>]}
+emotionmap = {MessageReaction.HEART : [[1, 0, 0], 1],
+            MessageReaction.SAD : [[0, 0, 1], 1],
+            MessageReaction.SMILE : [[0.707, 0, 0.707], 1],
+            MessageReaction.WOW : [[0.707, 0.707, 0], 1],
+            MessageReaction.ANGRY : [[0, 0.707, 0.707], 1]}
+reaction_history = {}
 
+# Fetch the service account key JSON file contents
+cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
+
+#this if statement is crucial to make sure that the file is able to be reloaded with out initilizing multiple apps
+if not firebase_admin._apps:
+    # Initialize the app with a custom auth variable, limiting the server's access
+    firebase_admin.initialize_app(cred, {
+        'databaseURL': os.environ.get("DATABASEURL"),
+        'databaseAuthVariableOverride': {
+            'uid': os.environ.get("WORKERID")
+        }
+    })
+
+# The app only has access as defined in the Security Rules
+groups_ref = db.reference('/groups')
 
 # Fetch the service account key JSON file contents
 cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
@@ -90,7 +122,55 @@ def hear_meet(client, author_id, message_object, thread_id, thread_type):
     meeting = Poll(title=f"Meeting on {datetime.strftime(msg_date, '%A, %x')}. Who's in?", options=[PollOption(text=time) for time in time_options])
     client.createPoll(poll=meeting, thread_id=thread_id)
     tag_all(client, author_id, None, thread_id, thread_type)
-
+def yelp_search(client, author_id, message_object, thread_id, thread_type):
+    inputs_array = message_object.text.split(' ', 1)[1].split("in", 1)
+    keyword = inputs_array[0]
+    location = inputs_array[1]
+    def request(host, path, api_key, url_params=None):
+        """Given your API_KEY, send a GET request to the API.
+        Args:
+        host (str): The domain host of the API.
+        path (str): The path of the API after the domain.
+        API_KEY (str): Your API Key.
+        url_params (dict): An optional set of query parameters in the request.
+        Returns:
+        dict: The JSON response from the request.
+        Raises:
+        HTTPError: An error occurs from the HTTP request.
+        """
+        url_params = url_params or {}
+        url = '{0}{1}'.format(host, quote(path.encode('utf8')))
+        headers = {
+        'Authorization': 'Bearer %s' % api_key,}
+        print(u'Querying {0} ...'.format(url))
+        response = requests.request('GET', url, headers=headers, params=url_params)
+        return response.json()
+    SEARCH_LIMIT = 5
+    API_HOST = 'https://api.yelp.com'
+    SEARCH_PATH = '/v3/businesses/search'
+    BUSINESS_PATH = '/v3/businesses/' 
+    url_params = {
+        'term': keyword.replace(' ', '+'),
+        'location': location.replace(' ', '+'),
+        'limit': SEARCH_LIMIT
+    }
+    def result_parser(result): 
+        whole_text = ""
+        for business in result["businesses"]:
+            attributes = ["name", "location","price","rating"]
+            for name in attributes: 
+                if name in business:
+                    if (name == "location"):
+                        if "display_address" in business["location"] and len(business["location"]["display_address"]) != 0:
+                            whole_text += name.capitalize() + ": " + " ".join(business["location"]["display_address"]) + "\n"
+                    else:
+                        whole_text += name.capitalize() + ": " + str(business[name]) + "\n"
+            whole_text += "\n\n"
+        return whole_text
+    result_dict = request(API_HOST, SEARCH_PATH, YELP_API_KEY, url_params=url_params)
+    returnString = json.dumps(result_dict)
+    returnText = result_parser(result_dict)
+    client.send(Message(text= returnText),thread_id=thread_id, thread_type=thread_type)
 def handle_meeting_vote(client, author_id, poll, thread_id, thread_type):
     global meeting_polls
     global CONSENSUS_THRESHOLD
@@ -178,7 +258,6 @@ def removeme(client, author_id, message_object, thread_id, thread_type):
 def kick_random(client, author_id, message_object, thread_id, thread_type):
     """Kicks a random person from the chat"""
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
-    person_to_kick = message_object.text.split(' ')[1:]
     persons_list = Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread])
     num = random.randint(0, len(persons_list)-1) #random number within range
     person = persons_list[num]
@@ -210,11 +289,28 @@ def list_functions(client, author_id, message_object, thread_id, thread_type):
     client.send(Message(text=message_string), thread_id=thread_id, thread_type=thread_type)
 
 def sentiment_react(client, author_id, message_object, thread_id, thread_type):
-    pol = SentimentIntensityAnalyzer().polarity_scores(message_object.text.split(" ", 1)[1])
-    if pol['pos'] > 0.6:
-        client.reactToMessage(message_object.uid, MessageReaction.HEART)
-    elif pol['neg'] > 0.6:
-        client.reactToMessage(message_object.uid, MessageReaction.SAD)
+    global emotionmap
+    pol = SentimentIntensityAnalyzer().polarity_scores(message_object.text)
+    compound = pol['compound']
+    pol = list(pol.values())[:-1][::-1]
+    similarity = {np.dot(pol, emotionmap[i][0])/(np.linalg.norm(pol)*np.linalg.norm(emotionmap[i][0])) : i for i in emotionmap.keys()}
+    # if emotion vector is +/- ~30 degrees from an emotion, send that reaction
+    if sorted(list(similarity.keys()), reverse=True)[0] > 0.866 and np.absolute(compound) > 0.4:
+        client.reactToMessage(message_object.uid, similarity[sorted(list(similarity.keys()), reverse=True)[0]])
+
+def reset_emotions(client, author_id, message_object, thread_id, thread_type):
+    global emotionmap
+    global reaction_history
+    default_emotions = {MessageReaction.HEART : [[1, 0, 0], 1],
+                MessageReaction.SAD : [[0, 0, 1], 1],
+                MessageReaction.SMILE : [[0.707, 0, 0.707], 1],
+                MessageReaction.WOW : [[0.707, 0.707, 0], 1],
+                MessageReaction.ANGRY : [[0, 0.707, 0.707], 1]}
+    emotionmap = copy.deepcopy(default_emotions)
+    reaction_history = {}
+    client.send(Message(text=f'Emotion memory reset at {datetime.now()}'), thread_id=thread_id, thread_type=thread_type)
+    log.info(f'Emotion vectors: {emotionmap}')
+    log.info(f'Reaction history: {reaction_history}')
 
 def world_peace(client, author_id, message_object, thread_id, thread_type):
     """Creates world peace"""
@@ -298,6 +394,18 @@ def check_status(client, author_id, message_object, thread_id, thread_type):
 # returns the most probable command if the command was not immediately in the command_lib
 def didyoumean(input_command):
     return process.extract(input_command ,command_lib.keys(), scorer = fuzz.partial_ratio, limit = 1)[0][0]
+    
+def recite(client, author_id, message_object, thread_id, thread_type):
+    client.send(Message(text="1. A robot may not injure a human being or, through inaction, allow a human being to come to harm.\n" 
+                        + "2. A robot must obey the orders given it by human beings except where such orders would conflict with the First Law.\n" 
+                        + "3. A robot must protect its own existence as long as such protection does not conflict with the First or Second Laws"), thread_id=thread_id, thread_type=thread_type)
+
+def make_friend(client, author_id, message_object, thread_id, thread_type):
+    gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
+    person_to_friend = message_object.text.split(' ', 1)[1]
+    for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
+        if person_to_friend.lower() in person.name.lower():
+            Client.friendConnect(client, person.uid)
 
 command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
                 "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
@@ -317,14 +425,18 @@ command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the 
                 "return": {"func": return_self, "description" : "Echoes what you tell the bot to say"},
                 "pm" : {"func" : pm_person, "description" : "PMs the given person"}, 
                 "help": {"func": list_functions, "description" : "Lists all available functions"},
-                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"}, 
                 "admin": {"func": admin, "description": "Makes someone admin"},
+                "yelp": {"func":yelp_search, "description": "Finds stores based on location and keyword"}, 
                 "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary"},
                 "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"},
                 "status" : {"func" : check_status, "description" : "Returns the bot's status"},
                 "pin" : {"func" : pin, "description" : "pins a message: call !pin to store the following text or reply to an image/text with !pin"},
-                "brief" : {"func" : brief, "description" : "returns your pinned image or text"}
-                }
+                "brief" : {"func" : brief, "description" : "returns your pinned image or text"},
+                "recite" : {"func" : recite, "description" : "Recites the three laws"},
+                "emotionreset" : {"func" : reset_emotions, "description" : "Resets emotion memory"},
+                "friend" : {"func" : make_friend, "description" : "Will accept the person's friend request"}
+               }
+
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
@@ -333,7 +445,8 @@ def command_handler(client, author_id, message_object, thread_id, thread_type):
             command["func"](client, author_id, message_object, thread_id, thread_type)
         else:
             client.send(Message(text="That command doesnt exist. Did you mean !" + str(didyoumean(message_object.text.split(' ')[0][1:]))), thread_id=thread_id, thread_type=thread_type)
-            sentiment_react(client, author_id, message_object, thread_id, thread_type)	
+    else:
+        sentiment_react(client, author_id, message_object, thread_id, thread_type)	
 
         
 
@@ -379,11 +492,44 @@ def person_removed_handler(client, removed_id, author_id, thread_id):
 def fr_handler(client, from_id, msg):
     pass
 
-def reaction_added_handler(client, reaction, author_id, thread_id, thread_type):
-    pass
+def reaction_added_handler(client, mid, reaction, author_id, thread_id, thread_type):
+    global emotionmap
+    global reaction_history
+    
+    if author_id != client.uid:
+        # add to reaction reaction history
+        reaction_history[(author_id, mid)] = reaction
+        # update emotion map
+        pol = SentimentIntensityAnalyzer().polarity_scores(client.fetchMessageInfo(mid, thread_id=thread_id).text)
+        react_sentiment = emotionmap[reaction][0]
+        react_sentiment = [emotionmap[reaction][1] * i for i in react_sentiment]
+        react_sentiment = [i + j for i, j in zip(react_sentiment, list(pol.values())[:-1][::-1])]
+        emotionmap[reaction][1] += 1
+        react_sentiment = [float(i / emotionmap[reaction][1]) for i in react_sentiment]
+        emotionmap[reaction][0] = react_sentiment
+        log.info(f"Added sentiment {pol} for message {mid} to {reaction}.")
+        log.info(emotionmap)
 
-def reaction_removed_handler(client, author_id, thread_id, thread_type, ts, msg):
-    pass
+def reaction_removed_handler(client, mid, author_id, thread_id, thread_type, ts, msg):
+    global emotionmap
+    global reaction_history
+    
+    if author_id != client.uid:
+        # update emotion map
+        message = client.fetchMessageInfo(mid, thread_id=thread_id)
+        pol = SentimentIntensityAnalyzer().polarity_scores(message.text)
+        try:
+            reaction = reaction_history[(author_id, mid)]
+        except KeyError: # emotion history cleared before reaction removed
+            return
+        react_sentiment = emotionmap[reaction][0]
+        react_sentiment = [emotionmap[reaction][1] * i for i in react_sentiment]
+        react_sentiment = [i - j for i, j in zip(react_sentiment, list(pol.values())[:-1][::-1])]
+        emotionmap[reaction][1] -= 1
+        react_sentiment = [float(i / emotionmap[reaction][1]) for i in react_sentiment]
+        emotionmap[reaction][0] = react_sentiment
+        log.info(f"Removed sentiment {pol} for message {mid} to {reaction}.")
+        log.info(emotionmap)
 
 def timestamp_handler(client, buddylist, msg):
     pass
