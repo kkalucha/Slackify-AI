@@ -9,7 +9,6 @@ from datetime import date, datetime, timedelta
 from hashlib import shake_256
 from urllib.error import HTTPError
 from urllib.parse import quote, urlencode
-
 import firebase_admin
 import numpy as np
 import requests
@@ -21,7 +20,7 @@ from fbchat import (Client, FBchatException, Mention, Message, MessageReaction,
 from firebase_admin import credentials, db
 from fuzzywuzzy import fuzz, process
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
-
+import random 
 from config import action_queue
 from objects import Action
 
@@ -43,9 +42,9 @@ anon_target_dict = {}
 
 # Fetch the service account key JSON file contents
 cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
-#this if statement is crucial to make sure that the file is able to be reloaded with out initilizing multiple apps
+
 if not firebase_admin._apps:
-    # Initialize the app with a custom auth variable, limiting the server's access
+    # Initialize the app with a custom auth variable, limiting the server's access for unauth users
     firebase_admin.initialize_app(cred, {
         'databaseURL': os.environ.get("DATABASEURL"),
         'databaseAuthVariableOverride': {
@@ -145,6 +144,7 @@ def yelp_search(client, author_id, message_object, thread_id, thread_type):
         'location': location.replace(' ', '+'),
         'limit': SEARCH_LIMIT
     }
+
     def result_parser(result): 
         whole_text = ""
         for business in result["businesses"]:
@@ -221,29 +221,6 @@ def kick(client, author_id, message_object, thread_id, thread_type):
             return
     log.info("Unable to remove: person not found.")
 
-def ap_comment(client, author_id, message_object, thread_id, thread_type):
-    """Apurv's special comment"""
-    action_queue.put(Action(client, 'message', thread_id, thread_type, text="yOu CaN't AuToMaTe HeAlThCaRe"))
-    
-def sully_comment(client, author_id, message_object, thread_id, thread_type):
-    """Sulaiman's special comment"""
-    action_queue.put(Action(client, 'message', thread_id, thread_type, text="i Am NoT ___ gUyS I swEAr"))
-    
-def pranshu_comment(client, author_id, message_object, thread_id, thread_type):
-    """Pranshu's special comment"""
-    action_queue.put(Action(client, 'message', thread_id, thread_type, text="Pranshu is a student at the University of Illinois Urbana-Champaign studying Computer Science and Statistics. My interests lie in High Performance Computing (HPC) and in AI/Deep Learning. Recently I attended the Super Computing 19 conference where I represented my school as a member of the University of Illinois Student Cluster Competition team; our team won 2nd place nationwide. I've recently also won 2nd place at the National Center for Supercomputing Applications Deep Learning Hackathon. At the Technology Student Association’s national conference in June, 2019, my team won 1st place out of over 75 teams in a research presentation competition on exploring a novel application of artificial intelligence in a domain field (website: pinkai.tech). I am an enthusiastic candidate for any role relating to HPC or Deep Learning; I hope to expand my skill set in the summer of 2020 through an internship at a company focusing on these disciplines. "))
-
-def aru_comment(client, author_id, message_object, thread_id, thread_type):
-    """Arunav's special comment"""
-    action_queue.put(Action(client, 'message', thread_id, thread_type, text="Commit pushed to origin master"))
-
-def kanav_comment(client, author_id, message_object, thread_id, thread_type):
-    """Kanav's special comment"""
-    action_queue.put(Action(client, 'message', thread_id, thread_type, text="yEa i gO tO cOlOmBiA kOlLeGe iN tHe ViLlAgE oF oLd dOrK"))
-
-def rishi_comment(client, author_id, message_object, thread_id, thread_type):
-    """Rishi's special comment"""
-    action_queue.put(Action(client, 'message', thread_id, thread_type, text="yEa I gO tO gTeCh fOr ThE sKaTeBoArDiNg WeAtHer"))
 
 def removeme(client, author_id, message_object, thread_id, thread_type):
     """Removes the person who calls this from the chat"""
@@ -261,7 +238,7 @@ def kick_random(client, author_id, message_object, thread_id, thread_type):
     return
     log.info("Unable to remove: person not found.")
                    
-#the message goes to spam my default if you aren't friends with the bot
+#the message goes to spam by default if you aren't friends with the bot
 def pm_person(client, author_id, message_object, thread_id, thread_type):
     gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
     person_to_pm = message_object.text.split(' ')[1:]
@@ -279,7 +256,7 @@ def list_functions(client, author_id, message_object, thread_id, thread_type):
     """Lists all available functions"""
     message_string = "List of available functions:\n"
     for key in list(command_lib.keys()):
-        if key != "help":
+        if key != "help" and command_lib[key]["private"] == "N":
             message_string += str(key) + " - " + command_lib[key]['description'] + "\n"
     action_queue.put(Action(client, 'message', thread_id, thread_type, text=message_string))
 
@@ -314,32 +291,24 @@ def world_peace(client, author_id, message_object, thread_id, thread_type):
     action_queue.put(Action(client, 'image', thread_id, thread_type, imagePath="resources/worldpeace.gif"))
 
 def pin(client, author_id, message_object, thread_id, thread_type):
-    #making sure something isnt pinned in a User thread to save space
     if Client.fetchThreadInfo(client, thread_id)[thread_id].type == ThreadType.USER:
         action_queue.put(Action(client, 'message', thread_id, thread_type, text="Pin only works in Group chats!"))
         return
     
-    #using these variables to check if the value exists either to prevent overwrites or to make only one variable is occupied at a time
     string_get = groups_ref.child(thread_id).child("string").get()
     pin_get = groups_ref.child(thread_id).child("pin_id").get()
     if message_object.replied_to == None:
-        #this is if they want to pin a string 
         to_pin = message_object.text.split(' ')[1:]
-        
         if not to_pin:
             action_queue.put(Action(client, 'message', thread_id, thread_type, text="Make sure you have something to pin!"))
             return
-        
         if string_get is None:
             groups_ref.child(thread_id).set({"string": to_pin})
         else:
             groups_ref.child(thread_id).update({"string": to_pin})
-        
-        #making sure pin_id doesnt exist or equals nulls to make sure only variable is occuplied at a time
         if pin_get != None:
             groups_ref.child(thread_id).child("pin_id").delete()
     else:
-        #this if they want to pin either an attachment or want to pin by replying to it
         if pin_get is None:
             groups_ref.child(thread_id).set({"pin_id": message_object.replied_to.uid})
         else:
@@ -360,12 +329,8 @@ def brief(client, author_id, message_object, thread_id, thread_type):
     if string_get is None and pin_get is None:
         action_queue.put(Action(client, 'message', thread_id, thread_type, text="You never pinned anything"))
     elif pin_get is None: 
-        #return string pinned
         action_queue.put(Action(client, 'message', thread_id, thread_type, text=string_get))
     else:
-        #return the attachment pinned, also includes a provision incase someone decides to pin a string by replying to it
-        #in reality i pulled pinned messages either by the string itself which isnt the best, or by the message id which is better but this is
-        #something i will change later, the important thing is to wrap the fetchMessageInfo to catch FBchatException in case the message doesnt exist 
         try :
             message_object = Client.fetchMessageInfo(client, mid=pin_get, thread_id=thread_id)
             print(message_object.attachments)
@@ -387,7 +352,6 @@ def urban_dict(client, author_id, message_object, thread_id, thread_type):
 def check_status(client, author_id, message_object, thread_id, thread_type):
     action_queue.put(Action(client, 'message', thread_id, thread_type, text="bot is live at {}".format(datetime.now())))
 
-# returns the most probable command if the command was not immediately in the command_lib
 def didyoumean(input_command):
     return process.extract(input_command ,command_lib.keys(), scorer = fuzz.partial_ratio, limit = 1)[0][0]
     
@@ -520,6 +484,15 @@ def end_anon(client, author_id, message_object, thread_id, thread_type):
     log.info(anon_dict)
     log.info(anon_target_dict)
 
+
+ 
+def coin_flip(client, author_id, message_object, thread_id, thread_type):
+    coin_flip = random.choice([1,2])
+    if coin_flip == 1:
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text="You got heads!"))
+    else:
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text="You got tails!"))
+
 #brew install poppler if on mac or pip install python-poppler on Ubuntu as in requirements.txt
 def scenesfromahat(client, author_id, message_object, thread_id, thread_type):
     os.system("rm -rf scenesfromahat.pdf")
@@ -530,40 +503,35 @@ def scenesfromahat(client, author_id, message_object, thread_id, thread_type):
         lines = f.readlines()
         action_queue.put(Action(client, 'message', thread_id, thread_type, text=random.choice(lines)))
 
-command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
-                "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
-                "meet" : {"func" : hear_meet, "description" : "Creates poll to decide on time for given date"},
-                "laugh" : {"func" : laugh, "description" : "Laughs"},
-                "randomp" : {"func": random_mention, "description" : "Tags a random person"},
-                "sully" : {"func" : sully_comment, "description" : "Sulaiman's special comment"},
-                "pranshu" : {"func" : pranshu_comment, "description" : "Pranshu's special comment"},
-                "ap" : {"func" : ap_comment, "description" : "Apurv's special comment"},
-                "aru" : {"func" : aru_comment, "description" : "Arunav's special comment"},
-                "kanav" : {"func" : kanav_comment, "description" : "Kanav's special comment"},
-                "rishi" : {"func" : rishi_comment, "description" : "Rishi's special comment"},
-                "kickr" : {"func" : kick_random, "description" : "Kicks a random person from the chat"},
-                "removeme" : {"func" : removeme, "description" : "Removes the person who calls this from the chat"},
-                "wiki" : {"func" : wiki, "description" : "Checks wikipedia for term"},
-                "return": {"func": return_self, "description" : "Echoes what you tell the bot to say"},
-                "pm" : {"func" : pm_person, "description" : "PMs the given person"}, 
-                "help": {"func": list_functions, "description" : "Lists all available functions"},
-                "admin": {"func": admin, "description": "Makes someone admin"},
-                "yelp": {"func":yelp_search, "description": "Finds stores based on location and keyword"}, 
-                "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary"},
-                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace"},
-                "status" : {"func" : check_status, "description" : "Returns the bot's status"},
-                "pin" : {"func" : pin, "description" : "pins a message: call !pin to store the following text or reply to an image/text with !pin"},
-                "brief" : {"func" : brief, "description" : "returns your pinned image or text"},
-                "recite" : {"func" : recite, "description" : "Recites the three laws"},
-                "emotionreset" : {"func" : reset_emotions, "description" : "Resets emotion memory"},
-                "friend" : {"func" : make_friend, "description" : "Will accept the person's friend request"},
-                "status" : {"func" : check_status, "description" : "Returns the bot's status"},
-                "send" : {"func" : send_anon, "description" : "Sends anonymous message to specified person"},
-                "reply" : {"func" : reply_anon, "description" : "Replies to anonymous message"},
-                "end" : {"func" : end_anon, "description" : "Ends anonymous chat session"},
-                "scenesfromahat" : {"func" : scenesfromahat, "description" : "Returns a random sentence from Scenes from a Hat"}
-               }
 
+        
+command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat", "private":"N"}, 
+                "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat", "private":"N"}, 
+                "meet" : {"func" : hear_meet, "description" : "Creates poll to decide on time for given date", "private":"N"},
+                "laugh" : {"func" : laugh, "description" : "Laughs", "private":"N"},
+                "randomp" : {"func": random_mention, "description" : "Tags a random person", "private":"N"},
+                "kickr" : {"func" : kick_random, "description" : "Kicks a random person from the chat", "private":"N"},
+                "removeme" : {"func" : removeme, "description" : "Removes the person who calls this from the chat", "private":"N"},
+                "wiki" : {"func" : wiki, "description" : "Checks wikipedia for term", "private":"N"},
+                "return": {"func": return_self, "description" : "Echoes what you tell the bot to say", "private":"Y"},
+                "pm" : {"func" : pm_person, "description" : "PMs the given person", "private":"N"}, 
+                "help": {"func": list_functions, "description" : "Lists all available functions","private":"N"},
+                "admin": {"func": admin, "description": "Makes someone admin", "private":"N"},
+                "yelp": {"func":yelp_search, "description": "Finds stores based on location and keyword", "private":"N"}, 
+                "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary", "private":"N"},
+                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace", "private":"N"},
+                "status" : {"func" : check_status, "description" : "Returns the bot's status", "private":"Y"},
+                "pin" : {"func" : pin, "description" : "pins a message: call !pin to store the following text or reply to an image/text with !pin", "private":"N"},
+                "brief" : {"func" : brief, "description" : "returns your pinned image or text", "private":"N"},
+                "recite" : {"func" : recite, "description" : "Recites the three laws", "private":"N"},
+                "emotionreset" : {"func" : reset_emotions, "description" : "Resets emotion memory", "private":"Y"},
+                "friend" : {"func" : make_friend, "description" : "Will accept the person's friend request", "private":"N"},
+                "send" : {"func" : send_anon, "description" : "Sends anonymous message to specified person", "private":"N"},
+                "reply" : {"func" : reply_anon, "description" : "Replies to anonymous message", "private":"N"},
+                "end" : {"func" : end_anon, "description" : "Ends anonymous chat session", "private":"N"},
+                "coin" : {"func" : coin_flip, "description" : "Flip a Coin!", "private":"Y"},
+                "scenesfromahat" : {"func" : scenesfromahat, "description" : "Returns a random sentence from Scenes from a Hat","private":"Y"}
+}
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
     if message_object.text.split(' ')[0][0] == '!':
@@ -575,7 +543,6 @@ def command_handler(client, author_id, message_object, thread_id, thread_type):
     else:
         sentiment_react(client, author_id, message_object, thread_id, thread_type)	
 
-        
 
 def vote_handler(client, author_id, poll, thread_id, thread_type):
     """Routes actions after a poll is voted on."""
