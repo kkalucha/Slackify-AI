@@ -489,7 +489,7 @@ def end_anon(client, author_id, message_object, thread_id, thread_type):
 def coin_flip(client, author_id, message_object, thread_id, thread_type):
     coin_flip = random.choice([1,2])
     if coin_flip == 1:
-        action_queue.put(Action(client, 'message', thread_id, thread_type, text="It turned up heads!"))
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text="You got heads!"))
     else:
         action_queue.put(Action(client, 'message', thread_id, thread_type, text="You got tails!"))
 
