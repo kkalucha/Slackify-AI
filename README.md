@@ -18,7 +18,7 @@ Slackify AI is a Facebook Messenger bot designed to bring the best features of S
 #### Admin
 1. Kick a specified person from the group chat - `!kick <person name>`
 2. Kick a random person from the group chat - `!kickr`
-3. Removes you from the group chat - '!removeme`
+3. Removes you from the group chat - `!removeme`
 4. Initiates a poll for a meeting and automatically updates the chat once consensus has been reached - `!meet <date>`
 5. PMs a given person - `!pm <person>`
 6. Makes a given person admin of the chat - `!admin <person name>`
