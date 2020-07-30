@@ -530,6 +530,37 @@ def scenesfromahat(client, author_id, message_object, thread_id, thread_type):
         lines = f.readlines()
         action_queue.put(Action(client, 'message', thread_id, thread_type, text=random.choice(lines)))
 
+def odds(client, author_id, message_object, thread_id, thread_type):
+    # if message contains bracket - is a reply
+    hash_search = target = re.match(r"[^[]*\[([^]]*)\]", message_object.text).groups()
+    gc_thread = Client.fetchThreadInfo(client, thread_id)[thread_id]
+    if len(hash_search) == 0: # message contains people - is start of new game
+        # make sure game is started in group chat
+        if thread_type != ThreadType.GROUP:
+            action_queue.put(Action(client, 'message', thread_id, thread_type, text='Please only do this is a group chat.'))
+            return
+        new_hash = shake_256(str(int(author_id) + random.randint(-1e4,1e4)).encode('utf-8')).hexdigest(6)
+        instigator = client.fetchUserInfo(author_id)[author_id]
+        # find user 
+        person_to_friend = message_object.text.split(' ', 1)[1]
+        target = None
+        for person in Client.fetchAllUsersFromThreads(self=client, threads=[gc_thread]):
+            if person_to_friend.lower in person.name.lower():
+                target = person.uid
+        if target == None:
+            # tell the user they're dumb
+            return
+        action_queue.put(Action(client, 'message', target.uid, ThreadType.USER, text=f"You've been challenged to an odds game by {instigator.first_name}. Pick a number between 1 and 10. To reply, copy and send the message below."))
+        action_queue.put(Action(client, 'message', target.uid, ThreadType.USER, text=f"!odds [{new_hash}] <your number here>"))
+        action_queue.put(Action(client, 'message', instigator.uid, ThreadType.USER, text=f"You started an odds game with {target.first_name}. Pick a number between 1 and 10. To reply, copy and send the message below."))
+        action_queue.put(Action(client, 'message', instigator.uid, ThreadType.USER, text=f"!odds [{new_hash}] <your number here>"))
+    else: # if message contains bracket - is a reply
+        # check hashcode against database
+        # check if both slots in the hashcode are filled
+        if '''both slots are filled''':
+            action_queue.put(Action(client, 'message', gc_thread, ThreadType.GROUP, text=f'{winner.first_name} has won the odds. Do what you will.'))
+            # delete from firebase
+
 command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat"}, 
                 "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat"}, 
                 "meet" : {"func" : hear_meet, "description" : "Creates poll to decide on time for given date"},
