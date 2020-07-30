@@ -1,13 +1,23 @@
 import os
-from fbchat import log, Client, Message
-from importlib import reload
-import utils
+import queue
+import time
 from datetime import datetime
+from importlib import reload
+from random import random
+from threading import Thread
+
+from fbchat import Client, Message, log
+
+import utils
+# a global, FIFO queue that contains action objects added by utils.py
+from config import action_queue
 
 username = os.environ.get('SLACKIFY_USERNAME')
 password = os.environ.get('SLACKIFY_PASSWORD')
 secret_key = os.environ.get('SLACKIFY_SECRET_KEY')
 reset_message = '!reset ' + secret_key
+BASE_WAIT = 0.2 # minimum wait time between actions
+
 
 # Subclass fbchat.Client and override required methods
 class SlackifyBot(Client):
@@ -23,6 +33,9 @@ class SlackifyBot(Client):
                     log.info("resetting bot... {}".format(datetime.now()))
                     self.send(Message(text="resetting bot... {}".format(datetime.now())), thread_id=thread_id, thread_type=thread_type)
                     reload(utils)
+                    while not action_queue.empty():
+                        print("Cleaning queue...")
+                        _ = action_queue.get()
                 else:
                     utils.command_handler(self, author_id, message_object, thread_id, thread_type)
     
@@ -86,5 +99,28 @@ class SlackifyBot(Client):
         log.debug("Chat Timestamps received: {}".format(buddylist))
         utils.timestamp_handler(self, buddylist, msg)
 
-client = SlackifyBot(str(username), str(password))
-client.listen()
+def listening_loop():
+    """Constantly checks for new activity on client's account."""
+    client = SlackifyBot(str(username), str(password))
+    try:
+        client.listen()
+        print("Thread listening....")
+    except KeyboardInterrupt:
+        # safely log out the client instead of just dropping the connection
+        client.logout()
+
+def action_loop():
+    """Executes new actions as they become available."""
+    global action_queue
+    print("Starting actions...")
+    while True:
+        if not action_queue.empty():
+            time.sleep(random() + BASE_WAIT)
+            action_queue.get(block=False).run()
+            action_queue.task_done()
+
+if __name__ == '__main__':
+    listener = Thread(name='listener', target=listening_loop)
+    action = Thread(name='action', target=action_loop)
+    listener.start()
+    action.start()
