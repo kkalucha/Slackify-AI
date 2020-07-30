@@ -484,6 +484,15 @@ def end_anon(client, author_id, message_object, thread_id, thread_type):
     log.info(anon_dict)
     log.info(anon_target_dict)
 
+
+ 
+def coin_flip(client, author_id, message_object, thread_id, thread_type):
+    coin_flip = random.choice([1,2])
+    if coin_flip == 1:
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text="It turned up heads!"))
+    else:
+        action_queue.put(Action(client, 'message', thread_id, thread_type, text="You got tails!"))
+
 #brew install poppler if on mac or pip install python-poppler on Ubuntu as in requirements.txt
 def scenesfromahat(client, author_id, message_object, thread_id, thread_type):
     os.system("rm -rf scenesfromahat.pdf")
@@ -494,41 +503,34 @@ def scenesfromahat(client, author_id, message_object, thread_id, thread_type):
         lines = f.readlines()
         action_queue.put(Action(client, 'message', thread_id, thread_type, text=random.choice(lines)))
 
- 
-def coin_flip(client, author_id, message_object, thread_id, thread_type):
-    coin_flip = random.choice([1,2])
-    if coin_flip == 1:
-        action_queue.put(Action(client, 'message', thread_id, thread_type, text="It turned up heads!"))
-    else:
-        action_queue.put(Action(client, 'message', thread_id, thread_type, text="You got tails!"))
 
         
-command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat", private="N"}, 
-                "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat", private="N"}, 
-                "meet" : {"func" : hear_meet, "description" : "Creates poll to decide on time for given date", private="N"},
-                "laugh" : {"func" : laugh, "description" : "Laughs", private="N"},
-                "randomp" : {"func": random_mention, "description" : "Tags a random person", private="N"},
-                "kickr" : {"func" : kick_random, "description" : "Kicks a random person from the chat", private="N"},
-                "removeme" : {"func" : removeme, "description" : "Removes the person who calls this from the chat", private="N"},
-                "wiki" : {"func" : wiki, "description" : "Checks wikipedia for term", private="N"},
-                "return": {"func": return_self, "description" : "Echoes what you tell the bot to say", private="Y"},
-                "pm" : {"func" : pm_person, "description" : "PMs the given person", private="N"}, 
-                "help": {"func": list_functions, "description" : "Lists all available functions", private="N"},
-                "admin": {"func": admin, "description": "Makes someone admin", private="N"},
-                "yelp": {"func":yelp_search, "description": "Finds stores based on location and keyword", private="N"}, 
-                "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary", private="N"},
-                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace", private="N"},
-                "status" : {"func" : check_status, "description" : "Returns the bot's status", private="Y"},
-                "pin" : {"func" : pin, "description" : "pins a message: call !pin to store the following text or reply to an image/text with !pin", private="N"},
-                "brief" : {"func" : brief, "description" : "returns your pinned image or text", private="N"},
-                "recite" : {"func" : recite, "description" : "Recites the three laws", private="N"},
-                "emotionreset" : {"func" : reset_emotions, "description" : "Resets emotion memory", private="Y"},
-                "friend" : {"func" : make_friend, "description" : "Will accept the person's friend request", private="N"},
-                "send" : {"func" : send_anon, "description" : "Sends anonymous message to specified person", private="N"},
-                "reply" : {"func" : reply_anon, "description" : "Replies to anonymous message", private="N"},
-                "end" : {"func" : end_anon, "description" : "Ends anonymous chat session", private="N"},
-                "coin" : {"func" : coin_flip, "description" : "Flip a Coin!", private="N"},
-                "scenesfromahat" : {"func" : scenesfromahat, "description" : "Returns a random sentence from Scenes from a Hat", private="Y"}
+command_lib = {"all" : {"func" : tag_all, "description" : "Tags everyone in the chat", "private":"N"}, 
+                "kick" : {"func" : kick, "description" : "Kicks the specified user from the chat", "private":"N"}, 
+                "meet" : {"func" : hear_meet, "description" : "Creates poll to decide on time for given date", "private":"N"},
+                "laugh" : {"func" : laugh, "description" : "Laughs", "private":"N"},
+                "randomp" : {"func": random_mention, "description" : "Tags a random person", "private":"N"},
+                "kickr" : {"func" : kick_random, "description" : "Kicks a random person from the chat", "private":"N"},
+                "removeme" : {"func" : removeme, "description" : "Removes the person who calls this from the chat", "private":"N"},
+                "wiki" : {"func" : wiki, "description" : "Checks wikipedia for term", "private":"N"},
+                "return": {"func": return_self, "description" : "Echoes what you tell the bot to say", "private":"Y"},
+                "pm" : {"func" : pm_person, "description" : "PMs the given person", "private":"N"}, 
+                "help": {"func": list_functions, "description" : "Lists all available functions","private":"N"},
+                "admin": {"func": admin, "description": "Makes someone admin", "private":"N"},
+                "yelp": {"func":yelp_search, "description": "Finds stores based on location and keyword", "private":"N"}, 
+                "urbandict": {"func" : urban_dict, "description" : "Returns query output from Urban Dictionary", "private":"N"},
+                "worldpeace" : {"func" : world_peace, "description" : "Creates world peace", "private":"N"},
+                "status" : {"func" : check_status, "description" : "Returns the bot's status", "private":"Y"},
+                "pin" : {"func" : pin, "description" : "pins a message: call !pin to store the following text or reply to an image/text with !pin", "private":"N"},
+                "brief" : {"func" : brief, "description" : "returns your pinned image or text", "private":"N"},
+                "recite" : {"func" : recite, "description" : "Recites the three laws", "private":"N"},
+                "emotionreset" : {"func" : reset_emotions, "description" : "Resets emotion memory", "private":"Y"},
+                "friend" : {"func" : make_friend, "description" : "Will accept the person's friend request", "private":"N"},
+                "send" : {"func" : send_anon, "description" : "Sends anonymous message to specified person", "private":"N"},
+                "reply" : {"func" : reply_anon, "description" : "Replies to anonymous message", "private":"N"},
+                "end" : {"func" : end_anon, "description" : "Ends anonymous chat session", "private":"N"},
+                "coin" : {"func" : coin_flip, "description" : "Flip a Coin!", "private":"Y"},
+                "scenesfromahat" : {"func" : scenesfromahat, "description" : "Returns a random sentence from Scenes from a Hat","private":"Y"}
 }
 
 def command_handler(client, author_id, message_object, thread_id, thread_type):
