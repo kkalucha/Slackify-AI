@@ -10,7 +10,7 @@ from fbchat import Client, Message, log
 
 import utils
 # a global, FIFO queue that contains action objects added by utils.py
-from config import action_queue
+from config import action_queue, reminders
 
 username = os.environ.get('SLACKIFY_USERNAME')
 password = os.environ.get('SLACKIFY_PASSWORD')
@@ -99,6 +99,16 @@ class SlackifyBot(Client):
         log.debug("Chat Timestamps received: {}".format(buddylist))
         utils.timestamp_handler(self, buddylist, msg)
 
+def check_reminders():
+    global reminders
+    global action_queue
+    while True:
+        curr_time = datetime.now().replace(microsecond=0)
+        if curr_time in reminders:
+            _ = [action_queue.put(reminders[curr_time][i]) for i in range(len(reminders[curr_time]))]
+            del reminders[curr_time]
+        time.sleep(1)
+
 def listening_loop():
     """Constantly checks for new activity on client's account."""
     client = SlackifyBot(str(username), str(password))
@@ -121,6 +131,8 @@ def action_loop():
 
 if __name__ == '__main__':
     listener = Thread(name='listener', target=listening_loop)
+    reminder = Thread(name='reminder', target=check_reminders)
     action = Thread(name='action', target=action_loop)
     listener.start()
+    reminder.start()
     action.start()

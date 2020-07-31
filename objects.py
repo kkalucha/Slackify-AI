@@ -33,7 +33,7 @@ class Action:
         """
         args: {
             'text': text of message,
-            'mentions': list of user id's to mention (=None if none)
+            'mentions': list of Mention objects (=None if none)
         }
         """
         if 'mentions' in self.args:
